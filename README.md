@@ -63,3 +63,17 @@ run downloads the model and dataset. Use `--sample-size`, `--batch-size`,
 `--max-length`, `--epochs`, `--learning-rate`, and `--seed` to adjust the pilot.
 The dataset, split, text column, model, and output directory are also
 configurable from the command line.
+
+## Pre-update PopQA inference
+
+After generating `data/processed/popqa_clean.csv`, run baseline inference over
+the entire cleaned split:
+
+```bash
+python src/pre_update_inference.py
+```
+
+This saves an `id`-keyed per-fact prediction and exact-match CSV to
+`data/processed/pre_update_results.csv`, plus aggregate accuracy and evaluated
+fact count in `results/pre_update_metrics.json`. The model, batch size, token
+limit, and input/output paths can be overridden with command-line options.
