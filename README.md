@@ -34,3 +34,16 @@ pip install -r requirements.txt
 ## Status
 
 Work in progress for the CSE 572 (Data Mining) course project. Progress report due **Nov 9**.
+
+## Pythia / PopQA smoke test
+
+Run the deterministic 200-question Pythia-160m evaluation from the repository root:
+
+```bash
+python src/pythia_popqa_smoke_test.py
+```
+
+The script loads raw PopQA test rows, parses each `possible_answers` JSON value,
+and counts a hit when a normalized gold answer appears in the generated text.
+The first run downloads the dataset and model. Adjust the sample size, batch
+size, or random seed with `--sample-size`, `--batch-size`, and `--seed`.
