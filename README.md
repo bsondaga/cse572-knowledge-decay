@@ -47,3 +47,19 @@ The script loads raw PopQA test rows, parses each `possible_answers` JSON value,
 and counts a hit when a normalized gold answer appears in the generated text.
 The first run downloads the dataset and model. Adjust the sample size, batch
 size, or random seed with `--sample-size`, `--batch-size`, and `--seed`.
+
+## Controlled Pythia update
+
+Run a pilot fine-tuning update on 128 streamed examples from TinyStories, a
+separate synthetic-story dataset rather than PopQA:
+
+```bash
+python src/controlled_update.py
+```
+
+The script fine-tunes `EleutherAI/pythia-160m` for one epoch and saves the
+checkpoint under `results/controlled_update/pythia-160m-tinystories/`. The first
+run downloads the model and dataset. Use `--sample-size`, `--batch-size`,
+`--max-length`, `--epochs`, `--learning-rate`, and `--seed` to adjust the pilot.
+The dataset, split, text column, model, and output directory are also
+configurable from the command line.

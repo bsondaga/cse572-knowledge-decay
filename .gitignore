@@ -19,6 +19,7 @@ data/processed/*
 *.pt
 *.bin
 *.ckpt
+results/controlled_update/
 
 # Secrets
 .env
