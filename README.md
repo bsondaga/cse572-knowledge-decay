@@ -77,3 +77,33 @@ This saves an `id`-keyed per-fact prediction and exact-match CSV to
 `data/processed/pre_update_results.csv`, plus aggregate accuracy and evaluated
 fact count in `results/pre_update_metrics.json`. The model, batch size, token
 limit, and input/output paths can be overridden with command-line options.
+
+## Task 16: post-update inference and forgetting labels
+
+Generate the cleaned PopQA CSV, run baseline inference, and then perform the
+controlled update before evaluating the updated checkpoint:
+
+```bash
+python src/load_popqa.py
+python src/pre_update_inference.py
+python src/controlled_update.py
+python src/pre_update_inference.py --model-name results/controlled_update/pythia-160m-tinystories --output data/processed/post_update_results.csv --metrics results/post_update_metrics.json --match-column post_update_exact_match
+python src/forgetting_labels.py
+```
+
+The labeler joins predictions by PopQA `id` and checks question/gold-answer
+consistency. A fact is labeled only if it was correct before the update:
+`forgotten` means post-update incorrect, and `retained` means post-update
+correct. Baseline-incorrect facts are excluded because they cannot be shown to
+have been forgotten. `forgetting_labels.csv` keeps every eligible fact and marks
+an equal-sized, deterministic forgotten/retained subset in `balanced_subset`
+(for downstream binary modeling); `--seed` changes that selection. The labeler
+uses only Python's standard library and can validate/integrate saved inference
+CSVs without loading ML packages.
+
+**Current runtime blocker:** Python 3.14.5 is available here, but `torch`,
+`transformers`, and `datasets` are not installed. Therefore no real PopQA
+inference, controlled update, or forgetting-label CSV was generated in this
+environment. Install the project requirements in a compatible Python
+environment, run the commands above in order, and the pipeline will produce the
+CSV; the label-generation logic is covered by dependency-free unit tests.
