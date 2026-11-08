@@ -1,4 +1,4 @@
-"""Measure Pythia's baseline exact-match accuracy on cleaned PopQA facts."""
+"""Measure Pythia exact-match accuracy on cleaned PopQA facts."""
 
 from __future__ import annotations
 
@@ -131,6 +131,7 @@ def save_results(
     model_name: str,
     output_path: Path,
     metrics_path: Path,
+    match_column: str = "baseline_exact_match",
 ) -> dict[str, Any]:
     """Persist per-fact predictions and an aggregate accuracy summary."""
     if not results:
@@ -146,26 +147,32 @@ def save_results(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8", newline="") as destination:
-        writer = csv.DictWriter(destination, fieldnames=OUTPUT_COLUMNS)
+        columns = tuple(
+            match_column if column == "baseline_exact_match" else column
+            for column in OUTPUT_COLUMNS
+        )
+        writer = csv.DictWriter(destination, fieldnames=columns)
         writer.writeheader()
         for result in results:
-            writer.writerow(
-                {
-                    **result,
-                    "possible_answers": json.dumps(
-                        result["possible_answers"], ensure_ascii=False
-                    ),
-                    "baseline_exact_match": int(result["baseline_exact_match"]),
-                }
-            )
+            output_row = {
+                **result,
+                "possible_answers": json.dumps(
+                    result["possible_answers"], ensure_ascii=False
+                ),
+                "baseline_exact_match": int(result["baseline_exact_match"]),
+            }
+            if match_column != "baseline_exact_match":
+                output_row[match_column] = output_row.pop("baseline_exact_match")
+            writer.writerow(output_row)
 
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.write_text(
         json.dumps(metrics, indent=2) + "\n",
         encoding="utf-8",
     )
+    result_name = "Baseline" if match_column == "baseline_exact_match" else "Post-update"
     print(
-        f"Baseline accuracy: {hits}/{len(results)} = "
+        f"{result_name} accuracy: {hits}/{len(results)} = "
         f"{metrics['accuracy']:.1%}"
     )
     print(f"Saved per-fact results to {output_path}")
@@ -178,6 +185,12 @@ def main() -> None:
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--metrics", type=Path, default=DEFAULT_METRICS)
+    parser.add_argument(
+        "--match-column",
+        choices=("baseline_exact_match", "post_update_exact_match"),
+        default="baseline_exact_match",
+        help="name the exact-match column for the evaluated model checkpoint",
+    )
     parser.add_argument("--model-name", default=MODEL_NAME)
     parser.add_argument("--batch-size", type=int, default=20)
     parser.add_argument("--max-new-tokens", type=int, default=16)
@@ -194,7 +207,9 @@ def main() -> None:
         args.batch_size,
         args.max_new_tokens,
     )
-    save_results(results, args.model_name, args.output, args.metrics)
+    save_results(
+        results, args.model_name, args.output, args.metrics, args.match_column
+    )
 
 
 if __name__ == "__main__":
