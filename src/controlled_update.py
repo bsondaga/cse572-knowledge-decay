@@ -127,7 +127,7 @@ def fine_tune(
         generator=generator,
     )
 
-    model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+    model = AutoModelForCausalLM.from_pretrained(model_name).float().to(device)
     model.config.pad_token_id = tokenizer.pad_token_id
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
