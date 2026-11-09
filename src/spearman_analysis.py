@@ -89,6 +89,27 @@ def spearman_table(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def spearman_by_relation(df: pd.DataFrame, min_facts: int = 20) -> pd.DataFrame:
+    """The Spearman table computed separately within each relation type (``prop``).
+
+    Relation type can confound the pooled correlation: some relations have both
+    very popular objects and high forgetting (e.g. "country"), which can flip
+    the sign of the overall result. Relations with fewer than ``min_facts``
+    facts, or with no variation in the target, are skipped.
+    """
+    if "prop" not in df.columns:
+        return pd.DataFrame()
+    parts = []
+    for prop, group in df.groupby("prop"):
+        if len(group) < min_facts or group["forgotten"].nunique() < 2:
+            continue
+        table = spearman_table(group)
+        table.insert(0, "prop", prop)
+        table.insert(2, "forget_rate", group["forgotten"].mean())
+        parts.append(table)
+    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+
+
 def forgetting_by_popularity_bin(df: pd.DataFrame, n_bins: int = 10) -> pd.DataFrame:
     """Forgetting rate per popularity quantile bin (bin 0 = rarest facts)."""
     bins = pd.qcut(df["popularity"].rank(method="first"), q=n_bins, labels=False)
@@ -145,9 +166,15 @@ def main() -> None:
     bins.to_csv(RESULTS_DIR / f"spearman_bins_{tag}.csv", index=False)
     if not args.no_plot:
         plot_bins(bins, RESULTS_DIR / f"spearman_bins_{tag}.png")
+    by_rel = spearman_by_relation(df)
+    if not by_rel.empty:
+        by_rel.to_csv(RESULTS_DIR / f"spearman_by_relation_{tag}.csv", index=False)
 
     print(f"Facts: {len(df)}  (source: {args.input or 'dummy data'})\n")
     print(corr.to_string(index=False, float_format=lambda x: f"{x:.4g}"))
+    if not by_rel.empty:
+        print("\nWithin each relation type (>= 20 facts):")
+        print(by_rel.to_string(index=False, float_format=lambda x: f"{x:.3g}"))
     print("\nForgetting rate by popularity bin:")
     print(bins.to_string(index=False, float_format=lambda x: f"{x:.3f}"))
     print(f"\nWrote results to {RESULTS_DIR}/spearman_*_{tag}.*")
