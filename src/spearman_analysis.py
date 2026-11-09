@@ -33,6 +33,7 @@ RESULTS_DIR = REPO_ROOT / "results"
 
 REQUIRED_COLUMNS = {"fact_id", "popularity", "forgotten"}
 TARGET_COLUMNS = ("forgotten", "acc_drop")
+PREDICTOR_COLUMNS = ("popularity", "o_pop", "degree")
 
 
 def make_dummy_data(n_facts: int = 2000, seed: int = 572) -> pd.DataFrame:
@@ -69,14 +70,22 @@ def load_facts(path: Path) -> pd.DataFrame:
 
 
 def spearman_table(df: pd.DataFrame) -> pd.DataFrame:
-    """Spearman rho and p-value of popularity against each forgetting target."""
+    """Spearman rho and p-value of each predictor against each forgetting target.
+
+    ``popularity`` is always tested; ``o_pop`` (object popularity) and
+    ``degree`` (fact-graph degree) are tested too when present.
+    """
     rows = []
-    for target in TARGET_COLUMNS:
-        if target not in df.columns:
-            continue
-        sub = df[["popularity", target]].dropna()
-        rho, p = spearmanr(sub["popularity"], sub[target])
-        rows.append({"target": target, "n": len(sub), "spearman_rho": rho, "p_value": p})
+    for predictor in PREDICTOR_COLUMNS:
+        for target in TARGET_COLUMNS:
+            if predictor not in df.columns or target not in df.columns:
+                continue
+            sub = df[[predictor, target]].dropna()
+            rho, p = spearmanr(sub[predictor], sub[target])
+            rows.append(
+                {"predictor": predictor, "target": target, "n": len(sub),
+                 "spearman_rho": rho, "p_value": p}
+            )
     return pd.DataFrame(rows)
 
 

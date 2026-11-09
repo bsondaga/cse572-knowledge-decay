@@ -42,7 +42,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = REPO_ROOT / "results"
 
 REQUIRED_COLUMNS = {"fact_id", "popularity", "forgotten"}
-POPULARITY_COLUMNS = ("popularity", "o_pop")  # log-transformed
+POPULARITY_COLUMNS = ("popularity", "o_pop", "degree")  # log-transformed (heavy-tailed)
 OPTIONAL_FEATURES = ("o_pop", "acc_drop")
 DUMMY_RELATIONS = ("occupation", "place of birth", "genre", "country", "capital", "author")
 SEED = 572
@@ -80,10 +80,19 @@ def load_facts(path: Path) -> pd.DataFrame:
     return df
 
 
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Numeric feature matrix (before scaling); rows with gaps are dropped."""
-    cols = ["popularity", "forgotten"] + [c for c in OPTIONAL_FEATURES if c in df.columns]
-    feats = df[cols].copy()
+def build_features(df: pd.DataFrame, columns: list[str] | None = None) -> pd.DataFrame:
+    """Numeric feature matrix (before scaling); rows with gaps are dropped.
+
+    ``columns`` picks the input columns to cluster on. Leave ``forgotten`` out
+    to cluster on fact properties only and then compare forgetting rates
+    between clusters (as in the real run, Task 18).
+    """
+    if columns is None:
+        columns = ["popularity", "forgotten"] + [c for c in OPTIONAL_FEATURES if c in df.columns]
+    missing = [c for c in columns if c not in df.columns]
+    if missing:
+        raise ValueError(f"Feature columns not in input: {missing}")
+    feats = df[columns].copy()
     for col in POPULARITY_COLUMNS:
         if col in feats:
             feats[col] = np.log1p(feats[col].clip(lower=0))
@@ -116,6 +125,8 @@ def profile_clusters(df: pd.DataFrame, labels: pd.Series) -> pd.DataFrame:
     )
     if "o_pop" in d:
         prof["median_o_pop"] = g["o_pop"].median()
+    if "degree" in d:
+        prof["median_degree"] = g["degree"].median()
     if "acc_drop" in d:
         prof["mean_acc_drop"] = g["acc_drop"].mean()
     if "prop" in d:
@@ -157,6 +168,11 @@ def main() -> None:
     parser.add_argument("--k", type=int, default=None, help="fix k instead of choosing it")
     parser.add_argument("--k-min", type=int, default=2)
     parser.add_argument("--k-max", type=int, default=8)
+    parser.add_argument(
+        "--features",
+        help="comma-separated input columns to cluster on, e.g. popularity,o_pop,degree "
+        "(default: popularity, forgotten, plus o_pop/acc_drop if present)",
+    )
     parser.add_argument("--no-plot", action="store_true")
     args = parser.parse_args()
 
@@ -167,7 +183,8 @@ def main() -> None:
         df = make_dummy_data()
         tag = args.tag or "dummy"
 
-    feats = build_features(df)
+    columns = [c.strip() for c in args.features.split(",")] if args.features else None
+    feats = build_features(df, columns)
     x = StandardScaler().fit_transform(feats)
 
     k_scores = choose_k(x, range(args.k_min, args.k_max + 1))
