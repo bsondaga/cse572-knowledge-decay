@@ -1,0 +1,6 @@
+{
+  "model": "results/controlled_update/pythia-160m-tinystories",
+  "evaluated_facts": 13059,
+  "correct_facts": 137,
+  "accuracy": 0.010490849222758251
+}
