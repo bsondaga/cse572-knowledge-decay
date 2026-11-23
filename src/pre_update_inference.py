@@ -88,7 +88,7 @@ def evaluate_facts(
     if tokenizer.eos_token_id is None:
         raise ValueError("Pythia tokenizer must define an EOS token for padding.")
     tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(model_name).to(device).eval()
+    model = AutoModelForCausalLM.from_pretrained(model_name).float().to(device).eval()
 
     results = []
     for start in range(0, len(facts), batch_size):
