@@ -45,6 +45,7 @@ python src/make_real_dataset.py
 ```
 
 - `data/processed/real_dataset.csv`: features, `guessable`, `forgotten_lr1e5`, `forgotten_default` (gitignored)
+- `results/frozen/real_dataset.csv`: the same table, committed. `load_real_dataset()` reads this file, so teammates do not need `data/processed`
 - `results/frozen/labels.csv`: frozen labels, committed
 - `results/splits/known/seed{0,1,2}.csv`: 70/15/15 split of the 285 non-guessable facts (primary)
 - `results/splits/all/seed{0,1,2}.csv`: same for all 929 facts

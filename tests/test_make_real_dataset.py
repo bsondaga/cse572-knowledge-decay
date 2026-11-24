@@ -16,6 +16,7 @@ from src.make_real_dataset import (
 
 RELATIONS = {"country": 120, "sport": 100, "capital": 60, "tiny_a": 8, "tiny_b": 6}
 FROZEN = Path(__file__).resolve().parents[1] / "results" / "frozen" / "labels.csv"
+FROZEN_DATASET = FROZEN.parent / "real_dataset.csv"
 
 
 def synthetic_tables(seed=0):
@@ -54,7 +55,8 @@ def dataset():
 @pytest.fixture(scope="module")
 def outputs(tmp_path_factory, dataset):
     root = tmp_path_factory.mktemp("out")
-    write_outputs(dataset, root / "real.csv", root / "frozen" / "labels.csv", root / "splits")
+    write_outputs(dataset, root / "real.csv", root / "frozen" / "labels.csv", root / "splits",
+                  frozen_dataset_path=root / "frozen" / "real_dataset.csv")
     return root
 
 
@@ -141,3 +143,21 @@ def test_frozen_labels_numbers():
     assert len(known) == 285
     assert known["forgotten_lr1e5"].sum() == 153
     assert known["forgotten_default"].sum() == 279
+
+
+def test_frozen_dataset_written(outputs, dataset):
+    frozen = pd.read_csv(outputs / "frozen" / "real_dataset.csv")
+    assert frozen["id"].tolist() == dataset["id"].tolist()
+
+
+@pytest.mark.skipif(not FROZEN_DATASET.exists(), reason="results/frozen/real_dataset.csv not present")
+def test_committed_dataset_loads():
+    d = load_real_dataset()
+    assert len(d) == 929
+    for col in ["id", "relation", "subject_pop", "subject_pop_log", "object_pop",
+                "object_pop_log", "degree", "guessable", "forgotten_lr1e5",
+                "forgotten_default"]:
+        assert col in d.columns
+    assert d["id"].is_unique
+    if FROZEN.exists():
+        assert set(d["id"]) == set(pd.read_csv(FROZEN)["id"])

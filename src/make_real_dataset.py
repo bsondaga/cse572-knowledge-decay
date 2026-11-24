@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROCESSED = ROOT / "data" / "processed"
 DATASET_PATH = PROCESSED / "real_dataset.csv"
 FROZEN_PATH = ROOT / "results" / "frozen" / "labels.csv"
+FROZEN_DATASET_PATH = ROOT / "results" / "frozen" / "real_dataset.csv"
 SPLITS_DIR = ROOT / "results" / "splits"
 SEEDS = (0, 1, 2)
 POPULATIONS = ("known", "all")
@@ -105,7 +106,7 @@ def make_split(df: pd.DataFrame, seed: int) -> pd.DataFrame:
     return pd.DataFrame({"id": df["id"].to_numpy(), "split": names})
 
 
-def load_real_dataset(path: Path = DATASET_PATH) -> pd.DataFrame:
+def load_real_dataset(path: Path = FROZEN_DATASET_PATH) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
@@ -116,9 +117,12 @@ def load_split(seed: int, population: str = "known", splits_dir: Path = SPLITS_D
 
 
 def write_outputs(dataset: pd.DataFrame, dataset_path: Path, frozen_path: Path,
-                  splits_dir: Path, seeds=SEEDS) -> None:
+                  splits_dir: Path, seeds=SEEDS, frozen_dataset_path: Path | None = None) -> None:
     dataset_path.parent.mkdir(parents=True, exist_ok=True)
     dataset.to_csv(dataset_path, index=False)
+    if frozen_dataset_path is not None:
+        frozen_dataset_path.parent.mkdir(parents=True, exist_ok=True)
+        dataset.to_csv(frozen_dataset_path, index=False)
     frozen_path.parent.mkdir(parents=True, exist_ok=True)
     dataset[LABEL_COLUMNS].to_csv(frozen_path, index=False)
     populations = {"all": dataset, "known": dataset[dataset["guessable"] == 0]}
@@ -160,6 +164,7 @@ def main() -> None:
     parser.add_argument("--processed", type=Path, default=PROCESSED)
     parser.add_argument("--dataset-out", type=Path, default=DATASET_PATH)
     parser.add_argument("--frozen-out", type=Path, default=FROZEN_PATH)
+    parser.add_argument("--frozen-dataset-out", type=Path, default=FROZEN_DATASET_PATH)
     parser.add_argument("--splits-dir", type=Path, default=SPLITS_DIR)
     args = parser.parse_args()
 
@@ -171,7 +176,8 @@ def main() -> None:
         pd.read_csv(p / "forgetting_labels_lr1e-5.csv"),
         pd.read_csv(p / "forgetting_labels.csv"),
     )
-    write_outputs(dataset, args.dataset_out, args.frozen_out, args.splits_dir)
+    write_outputs(dataset, args.dataset_out, args.frozen_out, args.splits_dir,
+                  frozen_dataset_path=args.frozen_dataset_out)
     summarize(dataset, args.splits_dir)
 
 
