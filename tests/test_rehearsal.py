@@ -1,6 +1,8 @@
 """Unit tests for the rehearsal selection strategies."""
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pandas as pd
 
@@ -10,6 +12,9 @@ from src.rehearsal import (
     select_popanchor,
     select_risk_based,
     select_rarest,
+    budget_to_k,
+    normalize_facts,
+    generate_selection,
 )
 
 
@@ -104,6 +109,89 @@ class RehearsalTests(unittest.TestCase):
         result = select_rarest(facts, k=2)
         self.assertEqual(result["id"].tolist(), [101, 102])
 
+    def test_budget_conversion(self):
+        self.assertEqual(budget_to_k(929, 5), 46)
+        self.assertEqual(budget_to_k(929, 10), 92)
+        self.assertEqual(budget_to_k(929, 20), 185)
+        self.assertEqual(budget_to_k(0, 5), 0)
+
+    def test_invalid_percentage_budget(self):
+        with self.assertRaises(ValueError):
+            budget_to_k(929, 15)
+        with self.assertRaises(ValueError):
+            budget_to_k(-1, 5)
+
+    def test_normalize_analysis_columns(self):
+        facts = self.facts.rename(columns={
+            "id": "fact_id",
+            "s_pop": "popularity",
+        })
+        normalized = normalize_facts(facts)
+        self.assertIn("id", normalized.columns)
+        self.assertIn("s_pop", normalized.columns)
+        self.assertIn("fact_id", facts.columns)
+
+    def test_selection_csv_all_strategies(self):
+        expected = {
+            "none": [],
+            "popanchor": [102],
+            "rarest": [105],
+            "risk_based": [103],
+        }
+
+        with TemporaryDirectory() as tmp:
+            for strategy in (
+                "none", "random", "popanchor",
+                "rarest", "risk_based"
+            ):
+                path = generate_selection(
+                    self.facts, strategy, 20,
+                    seed=0, output_dir=Path(tmp)
+                )
+                result = pd.read_csv(path)
+
+                self.assertEqual(
+                    list(result.columns), ["fact_id"]
+                )
+                self.assertEqual(
+                    len(result), 0 if strategy == "none" else 1
+                )
+                self.assertEqual(
+                    path.name,
+                    f"{strategy}_budget20_seed0.csv"
+                )
+
+                if strategy in expected:
+                    self.assertEqual(
+                        result["fact_id"].tolist(),
+                        expected[strategy]
+                    )
+                else:
+                    self.assertTrue(
+                        result["fact_id"].isin(self.facts["id"]).all()
+                    )
+
+    def test_selection_reproducibility(self):
+        with TemporaryDirectory() as tmp:
+            path = generate_selection(
+                self.facts, "random", 20,
+                seed=0, output_dir=Path(tmp)
+            )
+            first = path.read_bytes()
+
+            path = generate_selection(
+                self.facts, "random", 20,
+                seed=0, output_dir=Path(tmp)
+            )
+            self.assertEqual(first, path.read_bytes())
+
+    def test_unknown_strategy(self):
+        with TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                generate_selection(
+                    self.facts, "unknown", 20,
+                    output_dir=Path(tmp)
+                )
 
 if __name__ == "__main__":
     unittest.main()
