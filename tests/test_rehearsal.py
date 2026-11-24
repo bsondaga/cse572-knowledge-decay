@@ -1,5 +1,8 @@
 """Unit tests for the rehearsal selection strategies."""
 
+import subprocess
+import sys
+
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -15,8 +18,8 @@ from src.rehearsal import (
     budget_to_k,
     normalize_facts,
     generate_selection,
+    load_risk_scores,
 )
-
 
 class RehearsalTests(unittest.TestCase):
 
@@ -192,6 +195,168 @@ class RehearsalTests(unittest.TestCase):
                     self.facts, "unknown", 20,
                     output_dir=Path(tmp)
                 )
+
+    def test_load_external_risk_scores(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "risk_scores.csv"
+            scores = pd.DataFrame({
+                "fact_id": [105, 104, 103, 102, 101, 999],
+                "forgetting_risk": [0.1, 0.2, 0.3, 0.9, 0.8, 1.0],
+            })
+            scores.to_csv(path, index=False)
+
+            result = load_risk_scores(self.facts, path)
+
+            self.assertEqual(len(result), 5)
+            self.assertEqual(
+                result["id"].tolist(),
+                self.facts["id"].tolist()
+            )
+            self.assertEqual(
+                select_risk_based(result, 2)["id"].tolist(),
+                [102, 101]
+            )
+
+    def test_load_custom_risk_column(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "risk_scores.csv"
+            scores = self.facts[["id", "forgetting_risk"]].rename(
+                columns={"forgetting_risk": "predicted_risk"}
+            )
+            scores.to_csv(path, index=False)
+
+            result = load_risk_scores(
+                self.facts, path,
+                risk_column="predicted_risk"
+            )
+            self.assertIn("forgetting_risk", result.columns)
+
+    def test_risk_file_not_found(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "missing.csv"
+            with self.assertRaises(FileNotFoundError):
+                load_risk_scores(self.facts, path)
+
+    def test_risk_missing_column(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "risk_scores.csv"
+            self.facts[["id"]].to_csv(path, index=False)
+
+            with self.assertRaises(ValueError):
+                load_risk_scores(self.facts, path)
+
+    def test_risk_missing_fact(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "risk_scores.csv"
+            scores = self.facts[["id", "forgetting_risk"]].iloc[:-1]
+            scores.to_csv(path, index=False)
+
+            with self.assertRaises(ValueError):
+                load_risk_scores(self.facts, path)
+
+    def test_risk_duplicate_ids(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "risk_scores.csv"
+            scores = self.facts[["id", "forgetting_risk"]]
+            scores = pd.concat([scores, scores.iloc[[0]]])
+            scores.to_csv(path, index=False)
+
+            with self.assertRaises(ValueError):
+                load_risk_scores(self.facts, path)
+
+    def test_risk_invalid_probability(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "risk_scores.csv"
+            scores = self.facts[["id", "forgetting_risk"]].copy()
+
+            for invalid in (-0.1, 1.1, float("nan")):
+                with self.subTest(invalid=invalid):
+                    scores.loc[0, "forgetting_risk"] = invalid
+                    scores.to_csv(path, index=False)
+
+                    with self.assertRaises(ValueError):
+                        load_risk_scores(self.facts, path)
+
+    def test_cli_all_combinations(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            known_path = root / "known_facts.csv"
+            risk_path = root / "risk_scores.csv"
+            output_dir = root / "selections"
+
+            facts = pd.DataFrame({
+                "fact_id": range(1, 930),
+                "popularity": range(1, 930),
+            })
+            facts.to_csv(known_path, index=False)
+
+            scores = pd.DataFrame({
+                "fact_id": range(1, 930),
+                "forgetting_risk": [
+                    i / 929 for i in range(1, 930)
+                ],
+            })
+            scores.to_csv(risk_path, index=False)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m", "src.rehearsal",
+                    "--known-facts", str(known_path),
+                    "--risk-file", str(risk_path),
+                    "--output-dir", str(output_dir),
+                ],
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(
+                result.returncode, 0, result.stderr
+            )
+
+            files = list(output_dir.glob("*.csv"))
+            self.assertEqual(len(files), 45)
+
+            budgets = {5: 46, 10: 92, 20: 185}
+
+            for strategy in (
+                "none", "random", "popanchor",
+                "rarest", "risk_based"
+            ):
+                for budget, k in budgets.items():
+                    for seed in (0, 1, 2):
+                        path = output_dir / (
+                            f"{strategy}_budget{budget}_seed{seed}.csv"
+                        )
+                        selected = pd.read_csv(path)
+
+                        self.assertEqual(
+                            list(selected.columns), ["fact_id"]
+                        )
+                        self.assertEqual(
+                            len(selected),
+                            0 if strategy == "none" else k
+                        )
+                        self.assertTrue(
+                            selected["fact_id"].is_unique
+                        )
+                        self.assertTrue(
+                            selected["fact_id"].isin(
+                                facts["fact_id"]
+                            ).all()
+                        )
+
+                        if strategy == "rarest":
+                            self.assertEqual(
+                                selected["fact_id"].tolist(),
+                                list(range(1, k + 1))
+                            )
+
+                        if strategy in ("popanchor", "risk_based"):
+                            self.assertEqual(
+                                selected["fact_id"].tolist(),
+                                list(range(929, 929 - k, -1))
+                            )
 
 if __name__ == "__main__":
     unittest.main()

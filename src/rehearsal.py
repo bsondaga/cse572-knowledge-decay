@@ -1,5 +1,6 @@
 """Selection-only rehearsal strategies for PopQA facts."""
 
+import argparse
 from pathlib import Path
 
 import pandas as pd
@@ -166,3 +167,157 @@ def generate_selection(
     ).to_csv(output_path, index=False)
 
     return output_path
+
+def load_risk_scores(
+    df: pd.DataFrame,
+    risk_path: Path,
+    risk_column: str = "forgetting_risk",
+) -> pd.DataFrame:
+    """Attach external forgetting-risk scores to known facts."""
+    facts = normalize_facts(df)
+
+    risk_path = Path(risk_path)
+    if not risk_path.is_file():
+        raise FileNotFoundError(
+            f"Risk-score file not found: {risk_path}"
+        )
+
+    scores = pd.read_csv(risk_path)
+    scores = normalize_facts(scores)
+
+    if risk_column not in scores.columns:
+        raise ValueError(
+            f"Missing risk-score column: {risk_column}"
+        )
+
+    scores = scores[["id", risk_column]].copy()
+    scores[risk_column] = pd.to_numeric(
+        scores[risk_column], errors="raise"
+    )
+
+    if scores[risk_column].isna().any():
+        raise ValueError("Risk scores must not be missing")
+
+    if not scores[risk_column].between(0, 1).all():
+        raise ValueError("Risk scores must be between 0 and 1")
+
+    facts = facts.drop(
+        columns=["forgetting_risk"], errors="ignore"
+    )
+
+    scores = scores.rename(
+        columns={risk_column: "forgetting_risk"}
+    )
+
+    merged = facts.merge(
+        scores,
+        on="id",
+        how="left",
+        validate="one_to_one",
+        sort=False,
+    )
+
+    if merged["forgetting_risk"].isna().any():
+        missing = merged["forgetting_risk"].isna().sum()
+        raise ValueError(
+            f"Missing risk scores for {missing} known facts"
+        )
+
+    return merged
+
+def main() -> None:
+    """Generate rehearsal selection CSVs from known facts."""
+    parser = argparse.ArgumentParser(description=__doc__)
+
+    parser.add_argument(
+        "--known-facts",
+        type=Path,
+        required=True,
+        help="CSV containing only the frozen known facts",
+    )
+    parser.add_argument(
+        "--strategy",
+        choices=[
+            "none", "random", "popanchor",
+            "rarest", "risk_based", "all",
+        ],
+        default="all",
+    )
+    parser.add_argument(
+        "--budget",
+        type=int,
+        choices=BUDGETS,
+        nargs="+",
+        default=list(BUDGETS),
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        nargs="+",
+        default=[0, 1, 2],
+    )
+    parser.add_argument(
+        "--risk-file",
+        type=Path,
+        default=SELECTION_DIR.parents[1] / "risk_scores.csv",
+    )
+    parser.add_argument(
+        "--risk-column",
+        default="forgetting_risk",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=SELECTION_DIR,
+    )
+    parser.add_argument(
+        "--expected-known",
+        type=int,
+        default=929,
+    )
+
+    args = parser.parse_args()
+
+    facts = normalize_facts(
+        pd.read_csv(args.known_facts)
+    )
+
+    if len(facts) != args.expected_known:
+        raise ValueError(
+            f"Expected {args.expected_known} known facts, "
+            f"but received {len(facts)}"
+        )
+
+    strategies = (
+        ["none", "random", "popanchor", "rarest", "risk_based"]
+        if args.strategy == "all"
+        else [args.strategy]
+    )
+
+    if "risk_based" in strategies:
+        facts = load_risk_scores(
+            facts,
+            args.risk_file,
+            args.risk_column,
+        )
+
+    count = 0
+
+    for strategy in strategies:
+        for budget in args.budget:
+            for seed in args.seed:
+                path = generate_selection(
+                    facts,
+                    strategy,
+                    budget,
+                    seed,
+                    args.output_dir,
+                )
+                print(f"Saved {path}")
+                count += 1
+
+    print(f"Generated {count} selection CSV files")
+
+
+if __name__ == "__main__":
+    main()
