@@ -107,3 +107,21 @@ inference, controlled update, or forgetting-label CSV was generated in this
 environment. Install the project requirements in a compatible Python
 environment, run the commands above in order, and the pipeline will produce the
 CSV; the label-generation logic is covered by dependency-free unit tests.
+
+## Task 9: Relation-controlled analysis
+
+Tests whether relation type hides the popularity effect on forgetting. It runs
+Spearman (popularity, `o_pop`, degree vs forgotten) pooled and within each
+relation with at least 20 facts, with bootstrap 95% CIs and Benjamini-Hochberg
+(FDR) and Bonferroni correction across the within-relation tests. It also fits
+a logistic regression on standardised log features, without and with relation
+fixed effects, and reports bootstrap CIs for the odds ratios:
+
+```bash
+python src/relation_controlled_analysis.py           # default: known-facts lr 1e-5 table
+python src/relation_controlled_analysis.py --input data/processed/analysis_table_lr1e-5.csv --tag _all_facts
+```
+
+Outputs: `results/relation_controlled<tag>_spearman.csv`, `_logit.csv`, a forest
+plot `relation_controlled<tag>.png`, and `_summary.md`, which states the answer.
+Options: `--min-facts`, `--n-boot` (default 2000) and `--seed`.
