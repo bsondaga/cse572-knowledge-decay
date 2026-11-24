@@ -9,6 +9,7 @@ from src.rehearsal import (
     select_random,
     select_popanchor,
     select_risk_based,
+    select_rarest,
 )
 
 
@@ -71,6 +72,37 @@ class RehearsalTests(unittest.TestCase):
             facts, k=2, risk_column="predicted_risk"
         )
         self.assertEqual(result["id"].tolist(), [103, 101])
+
+    def test_rarest_selection(self):
+        result = select_rarest(self.facts, k=2)
+        self.assertEqual(result["id"].tolist(), [105, 101])
+
+    def test_rarest_zero_budget(self):
+        self.assertTrue(select_rarest(self.facts, 0).empty)
+
+    def test_rarest_invalid_budget(self):
+        with self.assertRaises(ValueError):
+            select_rarest(self.facts, -1)
+        with self.assertRaises(ValueError):
+            select_rarest(self.facts, 6)
+
+    def test_rarest_missing_popularity(self):
+        with self.assertRaises(ValueError):
+            select_rarest(self.facts.drop(columns="s_pop"), 2)
+
+    def test_rarest_missing_values(self):
+        facts = self.facts.copy()
+        facts.loc[0, "s_pop"] = float("nan")
+        with self.assertRaises(ValueError):
+            select_rarest(facts, 2)
+
+    def test_rarest_tie_breaking(self):
+        facts = pd.DataFrame({
+            "id": [103, 101, 102],
+            "s_pop": [50, 50, 50],
+        })
+        result = select_rarest(facts, k=2)
+        self.assertEqual(result["id"].tolist(), [101, 102])
 
 
 if __name__ == "__main__":

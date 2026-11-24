@@ -70,3 +70,22 @@ def select_risk_based(
         .head(k)
         .reset_index(drop=True)
     )
+
+
+def select_rarest(df: pd.DataFrame, k: int) -> pd.DataFrame:
+    """Select k facts with the lowest subject popularity."""
+    _validate(df, k)
+    if "s_pop" not in df.columns:
+        raise ValueError("Missing required column: s_pop")
+    if df["s_pop"].isna().any():
+        raise ValueError("Popularity scores must not be missing")
+
+    return (
+        df.sort_values(
+            by=["s_pop", "id"],
+            ascending=[True, True],
+            kind="stable",
+        )
+        .head(k)
+        .reset_index(drop=True)
+    )
