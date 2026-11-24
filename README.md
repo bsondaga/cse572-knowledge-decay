@@ -193,3 +193,30 @@ python src/association_rules.py --input data/processed/analysis_table_lr1e-5.csv
 Outputs are `results/apriori_rules<tag>.csv` (support, confidence and lift for
 every rule) and `results/apriori_top_rules<tag>.md` (the top 10 by lift). Use
 `--min-support`, `--min-confidence` and `--max-len` to change the thresholds.
+
+## Tasks 14, 18, 25: Comparing label sets
+
+`src/compare_label_sets.py` runs the same analyses on several label sets and
+compares them: forgetting rate, Spearman (popularity, `o_pop`, degree), the
+forgetting rate per popularity quartile, k-means cluster spread and, with
+`--apriori`, the Task 4 rules. Each run is `NAME=PATH`, pointing to a
+forgetting-labels CSV or an analysis table. Guessed facts are dropped unless
+you pass `--keep-guessable`; give each run its own pre-update results with
+`--pre NAME=PATH` (the default is `data/processed/pre_update_results.csv`).
+
+```bash
+# Task 14: seed stability, using the 3 label sets from Task 10
+python src/compare_label_sets.py --tag seeds \
+    seed1=data/processed/forgetting_labels_seed1.csv \
+    seed2=data/processed/forgetting_labels_seed2.csv \
+    seed3=data/processed/forgetting_labels_seed3.csv
+
+# Pilot that has already run: default update vs lr 1e-5 update
+python src/compare_label_sets.py --tag pilot_updates \
+    default_lr5e-5=data/processed/forgetting_labels.csv \
+    lr1e-5=data/processed/forgetting_labels_lr1e-5.csv
+```
+
+Outputs: `results/compare_<tag>_runs.csv` (one row per run),
+`compare_<tag>_summary.csv` (mean, SD, min and max) and `compare_<tag>.md`
+(tables plus the verdict).
