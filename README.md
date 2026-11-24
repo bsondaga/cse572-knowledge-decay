@@ -107,3 +107,21 @@ inference, controlled update, or forgetting-label CSV was generated in this
 environment. Install the project requirements in a compatible Python
 environment, run the commands above in order, and the pipeline will produce the
 CSV; the label-generation logic is covered by dependency-free unit tests.
+
+## Task 4: Association rules
+
+Mine Apriori rules (mlxtend) that predict which facts are forgotten. Each fact
+becomes items: subject and object popularity quartiles (`pop=q1` is the rarest),
+a graph-degree band (`degree=0`, `1-2`, `3-9`, `10+`) and its relation
+(`rel=country`). Only rules `X -> forgotten` are kept:
+
+```bash
+python src/build_analysis_table.py --labels data/processed/forgetting_labels_lr1e-5.csv \
+    --drop-guessable --out data/processed/analysis_table_lr1e-5_known.csv
+python src/association_rules.py                      # default: that known-facts table
+python src/association_rules.py --input data/processed/analysis_table_lr1e-5.csv --tag _all_facts
+```
+
+Outputs are `results/apriori_rules<tag>.csv` (support, confidence and lift for
+every rule) and `results/apriori_top_rules<tag>.md` (the top 10 by lift). Use
+`--min-support`, `--min-confidence` and `--max-len` to change the thresholds.
