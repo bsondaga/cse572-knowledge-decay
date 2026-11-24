@@ -73,10 +73,11 @@ the entire cleaned split:
 python src/pre_update_inference.py
 ```
 
-This saves an `id`-keyed per-fact prediction and exact-match CSV to
+This saves an `id`-keyed per-fact prediction, exact-match, and confidence CSV to
 `data/processed/pre_update_results.csv`, plus aggregate accuracy and evaluated
 fact count in `results/pre_update_metrics.json`. The model, batch size, token
 limit, and input/output paths can be overridden with command-line options.
+`confidence` is the mean token log-probability of the generated answer.
 
 ## Task 16: post-update inference and forgetting labels
 
@@ -125,3 +126,20 @@ python src/relation_controlled_analysis.py --input data/processed/analysis_table
 Outputs: `results/relation_controlled<tag>_spearman.csv`, `_logit.csv`, a forest
 plot `relation_controlled<tag>.png`, and `_summary.md`, which states the answer.
 Options: `--min-facts`, `--n-boot` (default 2000) and `--seed`.
+## Task 4: Association rules
+
+Mine Apriori rules (mlxtend) that predict which facts are forgotten. Each fact
+becomes items: subject and object popularity quartiles (`pop=q1` is the rarest),
+a graph-degree band (`degree=0`, `1-2`, `3-9`, `10+`) and its relation
+(`rel=country`). Only rules `X -> forgotten` are kept:
+
+```bash
+python src/build_analysis_table.py --labels data/processed/forgetting_labels_lr1e-5.csv \
+    --drop-guessable --out data/processed/analysis_table_lr1e-5_known.csv
+python src/association_rules.py                      # default: that known-facts table
+python src/association_rules.py --input data/processed/analysis_table_lr1e-5.csv --tag _all_facts
+```
+
+Outputs are `results/apriori_rules<tag>.csv` (support, confidence and lift for
+every rule) and `results/apriori_top_rules<tag>.md` (the top 10 by lift). Use
+`--min-support`, `--min-confidence` and `--max-len` to change the thresholds.

@@ -4,7 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.pre_update_inference import load_facts, save_results
+from src.pre_update_inference import (
+    load_facts,
+    mean_token_log_probability,
+    save_results,
+)
 
 
 class CleanedPopQALoadTests(unittest.TestCase):
@@ -79,6 +83,42 @@ class CleanedPopQALoadTests(unittest.TestCase):
 
 
 class BaselineOutputTests(unittest.TestCase):
+    def test_mean_token_log_probability_uses_generated_answer_tokens(self):
+        class FakeTensor:
+            def __init__(self, value):
+                self.value = value
+
+            def __getitem__(self, index):
+                if isinstance(index, tuple):
+                    row, column_slice = index
+                    if isinstance(column_slice, slice):
+                        return FakeTensor(self.value[row][column_slice])
+                    return FakeTensor(self.value[row][column_slice])
+                return FakeTensor(self.value[index])
+
+            def log_softmax(self, dim=-1):
+                size = len(self.value)
+                return FakeTensor([-__import__("math").log(size)] * size)
+
+            def item(self):
+                return self.value
+
+            def tolist(self):
+                return self.value
+
+        token_scores = [FakeTensor([[0, 0, 0], [0, 0, 0]])] * 2
+        generated_ids = FakeTensor([[1, 1, 1], [1, 1, 1]])
+
+        confidence = mean_token_log_probability(
+            token_scores,
+            generated_ids,
+            batch_index=0,
+            prompt_width=1,
+            eos_token_id=2,
+        )
+
+        self.assertAlmostEqual(confidence, -__import__("math").log(3))
+
     def test_saves_joinable_per_fact_results_and_accuracy_summary(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -91,6 +131,7 @@ class BaselineOutputTests(unittest.TestCase):
                     "prediction": "William Shakespeare",
                     "possible_answers": ["William Shakespeare"],
                     "baseline_exact_match": True,
+                    "confidence": -1.25,
                 },
                 {
                     "id": "2",
@@ -111,6 +152,7 @@ class BaselineOutputTests(unittest.TestCase):
             self.assertEqual(
                 [row["baseline_exact_match"] for row in saved_rows], ["1", "0"]
             )
+            self.assertEqual(saved_rows[0]["confidence"], "-1.25")
             self.assertEqual(json.loads(saved_rows[0]["possible_answers"]), ["William Shakespeare"])
             self.assertEqual(metrics["evaluated_facts"], 2)
             self.assertEqual(metrics["correct_facts"], 1)
