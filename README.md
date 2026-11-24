@@ -73,10 +73,11 @@ the entire cleaned split:
 python src/pre_update_inference.py
 ```
 
-This saves an `id`-keyed per-fact prediction and exact-match CSV to
+This saves an `id`-keyed per-fact prediction, exact-match, and confidence CSV to
 `data/processed/pre_update_results.csv`, plus aggregate accuracy and evaluated
 fact count in `results/pre_update_metrics.json`. The model, batch size, token
 limit, and input/output paths can be overridden with command-line options.
+`confidence` is the mean token log-probability of the generated answer.
 
 ## Task 16: post-update inference and forgetting labels
 
