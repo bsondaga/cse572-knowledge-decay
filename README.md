@@ -35,6 +35,24 @@ pip install -r requirements.txt
 
 Work in progress for the CSE 572 (Data Mining) course project. Progress report due **Nov 9**.
 
+## Real dataset
+
+One table of the 929 facts the model answered correctly before the update, with frozen
+forgetting labels and shared splits. Needs the processed CSVs in `data/processed`.
+
+```
+python src/make_real_dataset.py
+```
+
+- `data/processed/real_dataset.csv`: features, `guessable`, `forgotten_lr1e5`, `forgotten_default` (gitignored)
+- `results/frozen/real_dataset.csv`: the same table, committed. `load_real_dataset()` reads this file, so teammates do not need `data/processed`
+- `results/frozen/labels.csv`: frozen labels, committed
+- `results/splits/known/seed{0,1,2}.csv`: 70/15/15 split of the 285 non-guessable facts (primary)
+- `results/splits/all/seed{0,1,2}.csv`: same for all 929 facts
+
+Splits are stratified on `forgotten_lr1e5` and relation; rare relations are merged into "other".
+Load them with `load_real_dataset()` and `load_split(seed, population)` from `src/make_real_dataset.py`.
+
 ## Pythia / PopQA smoke test
 
 Run the deterministic 200-question Pythia-160m evaluation from the repository root:

@@ -22,3 +22,4 @@ seaborn>=0.12
 # Notebooks / utilities
 jupyter>=1.0
 tqdm>=4.66
+mlxtend>=0.23
