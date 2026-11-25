@@ -23,7 +23,31 @@ OUTPUT_COLUMNS = (
     "prediction",
     "possible_answers",
     "baseline_exact_match",
+    "confidence",
 )
+
+
+def mean_token_log_probability(
+    token_scores: list[Any],
+    generated_ids: Any,
+    batch_index: int,
+    prompt_width: int,
+    eos_token_id: int | None = None,
+) -> float:
+    """Return mean token log-probability for a generated answer."""
+    answer_ids = generated_ids[batch_index, prompt_width:].tolist()
+    token_log_probs = []
+    for step, token_id in enumerate(answer_ids):
+        if eos_token_id is not None and token_id in (eos_token_id,):
+            break
+        if step >= len(token_scores):
+            break
+        log_probs = token_scores[step][batch_index].log_softmax(dim=-1)
+        token_log_probs.append(float(log_probs[token_id].item()))
+
+    if not token_log_probs:
+        return 0.0
+    return sum(token_log_probs) / len(token_log_probs)
 
 
 def load_facts(input_path: Path) -> list[dict[str, Any]]:
@@ -101,14 +125,17 @@ def evaluate_facts(
                 max_new_tokens=max_new_tokens,
                 do_sample=False,
                 pad_token_id=tokenizer.eos_token_id,
+                return_dict_in_generate=True,
+                output_scores=True,
             )
 
-        if len(generated) != len(batch):
+        generated_ids = generated.sequences
+        if len(generated_ids) != len(batch):
             raise RuntimeError(
-                f"Model returned {len(generated)} outputs for {len(batch)} facts."
+                f"Model returned {len(generated_ids)} outputs for {len(batch)} facts."
             )
         prompt_width = encoded.input_ids.shape[1]
-        for fact, output in zip(batch, generated):
+        for batch_index, (fact, output) in enumerate(zip(batch, generated_ids)):
             prediction = tokenizer.decode(
                 output[prompt_width:], skip_special_tokens=True
             )
@@ -120,6 +147,13 @@ def evaluate_facts(
                     "prediction": prediction,
                     "possible_answers": fact["answers"],
                     "baseline_exact_match": exact_match(prediction, fact["answers"]),
+                    "confidence": mean_token_log_probability(
+                        generated.scores,
+                        generated_ids,
+                        batch_index,
+                        prompt_width,
+                        tokenizer.eos_token_id,
+                    ),
                 }
             )
         print(f"Evaluated {min(start + len(batch), len(facts))}/{len(facts)} facts")
@@ -160,6 +194,7 @@ def save_results(
                     result["possible_answers"], ensure_ascii=False
                 ),
                 "baseline_exact_match": int(result["baseline_exact_match"]),
+                "confidence": float(result.get("confidence", 0.0)),
             }
             if match_column != "baseline_exact_match":
                 output_row[match_column] = output_row.pop("baseline_exact_match")

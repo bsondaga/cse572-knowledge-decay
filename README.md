@@ -35,6 +35,24 @@ pip install -r requirements.txt
 
 Work in progress for the CSE 572 (Data Mining) course project. Progress report due **Nov 9**.
 
+## Real dataset
+
+One table of the 929 facts the model answered correctly before the update, with frozen
+forgetting labels and shared splits. Needs the processed CSVs in `data/processed`.
+
+```
+python src/make_real_dataset.py
+```
+
+- `data/processed/real_dataset.csv`: features, `guessable`, `forgotten_lr1e5`, `forgotten_default` (gitignored)
+- `results/frozen/real_dataset.csv`: the same table, committed. `load_real_dataset()` reads this file, so teammates do not need `data/processed`
+- `results/frozen/labels.csv`: frozen labels, committed
+- `results/splits/known/seed{0,1,2}.csv`: 70/15/15 split of the 285 non-guessable facts (primary)
+- `results/splits/all/seed{0,1,2}.csv`: same for all 929 facts
+
+Splits are stratified on `forgotten_lr1e5` and relation; rare relations are merged into "other".
+Load them with `load_real_dataset()` and `load_split(seed, population)` from `src/make_real_dataset.py`.
+
 ## Pythia / PopQA smoke test
 
 Run the deterministic 200-question Pythia-160m evaluation from the repository root:
@@ -73,10 +91,11 @@ the entire cleaned split:
 python src/pre_update_inference.py
 ```
 
-This saves an `id`-keyed per-fact prediction and exact-match CSV to
+This saves an `id`-keyed per-fact prediction, exact-match, and confidence CSV to
 `data/processed/pre_update_results.csv`, plus aggregate accuracy and evaluated
 fact count in `results/pre_update_metrics.json`. The model, batch size, token
 limit, and input/output paths can be overridden with command-line options.
+`confidence` is the mean token log-probability of the generated answer.
 
 ## Task 16: post-update inference and forgetting labels
 
@@ -109,3 +128,38 @@ environment. Install the project requirements in a compatible Python
 environment, run the commands above in order, and the pipeline will produce the
 CSV; the label-generation logic is covered by dependency-free unit tests.
 
+
+## Task 9: Relation-controlled analysis
+
+Tests whether relation type hides the popularity effect on forgetting. It runs
+Spearman (popularity, `o_pop`, degree vs forgotten) pooled and within each
+relation with at least 20 facts, with bootstrap 95% CIs and Benjamini-Hochberg
+(FDR) and Bonferroni correction across the within-relation tests. It also fits
+a logistic regression on standardised log features, without and with relation
+fixed effects, and reports bootstrap CIs for the odds ratios:
+
+```bash
+python src/relation_controlled_analysis.py           # default: known-facts lr 1e-5 table
+python src/relation_controlled_analysis.py --input data/processed/analysis_table_lr1e-5.csv --tag _all_facts
+```
+
+Outputs: `results/relation_controlled<tag>_spearman.csv`, `_logit.csv`, a forest
+plot `relation_controlled<tag>.png`, and `_summary.md`, which states the answer.
+Options: `--min-facts`, `--n-boot` (default 2000) and `--seed`.
+## Task 4: Association rules
+
+Mine Apriori rules (mlxtend) that predict which facts are forgotten. Each fact
+becomes items: subject and object popularity quartiles (`pop=q1` is the rarest),
+a graph-degree band (`degree=0`, `1-2`, `3-9`, `10+`) and its relation
+(`rel=country`). Only rules `X -> forgotten` are kept:
+
+```bash
+python src/build_analysis_table.py --labels data/processed/forgetting_labels_lr1e-5.csv \
+    --drop-guessable --out data/processed/analysis_table_lr1e-5_known.csv
+python src/association_rules.py                      # default: that known-facts table
+python src/association_rules.py --input data/processed/analysis_table_lr1e-5.csv --tag _all_facts
+```
+
+Outputs are `results/apriori_rules<tag>.csv` (support, confidence and lift for
+every rule) and `results/apriori_top_rules<tag>.md` (the top 10 by lift). Use
+`--min-support`, `--min-confidence` and `--max-len` to change the thresholds.
