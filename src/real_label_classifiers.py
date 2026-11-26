@@ -8,14 +8,17 @@ from lightgbm import LGBMClassifier
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 try:
     from src.evaluation_metrics import evaluate_predictions
+    from src.make_real_dataset import MIN_STRATUM, merge_rare_relations
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from src.evaluation_metrics import evaluate_predictions
+    from src.make_real_dataset import MIN_STRATUM, merge_rare_relations
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET_PATH = ROOT / "results" / "frozen" / "real_dataset.csv"
@@ -78,6 +81,36 @@ SUMMARY_COLUMNS = (
 RESULTS_DIR = ROOT / "results"
 PER_SEED_OUTPUT = RESULTS_DIR / "task5_metrics_by_seed.csv"
 SUMMARY_OUTPUT = RESULTS_DIR / "task5_summary.csv"
+CV_SEEDS = (0, 1, 2)
+CV_FOLDS = 5
+CV_SCORE_COLUMNS = (
+    "id",
+    "population",
+    "model",
+    "seed",
+    "fold",
+    "true_label",
+    "forgetting_risk",
+)
+CV_METRIC_COLUMNS = (
+    "population",
+    "model",
+    "seed",
+    "fold",
+    "n_train",
+    "n_validation",
+    *METRIC_NAMES,
+)
+CV_SUMMARY_COLUMNS = (
+    "population",
+    "model",
+    "n_evaluations",
+    *(f"{metric}_{stat}" for metric in METRIC_NAMES for stat in ("mean", "std")),
+)
+OOF_SCORE_OUTPUT = RESULTS_DIR / "risk_scores_by_model.csv"
+FINAL_RISK_OUTPUT = RESULTS_DIR / "risk_scores.csv"
+CV_METRICS_OUTPUT = RESULTS_DIR / "task5_cv_metrics_by_fold.csv"
+CV_SUMMARY_OUTPUT = RESULTS_DIR / "task5_cv_summary.csv"
 
 
 @dataclass(frozen=True)
@@ -106,6 +139,23 @@ class FrozenSplitIndices:
             np.sort(combined), np.arange(n_rows)
         ):
             raise ValueError("split indices must cover the selected population exactly once")
+
+
+@dataclass(frozen=True)
+class CrossValidationFold:
+    train: np.ndarray
+    validation: np.ndarray
+
+    def validate(self, n_rows: int) -> None:
+        for indices in (self.train, self.validation):
+            if indices.ndim != 1 or not np.issubdtype(indices.dtype, np.integer):
+                raise ValueError("cross-validation indices must be one-dimensional integers")
+            if len(indices) == 0:
+                raise ValueError("cross-validation train and validation folds must be non-empty")
+            if np.any(indices < 0) or np.any(indices >= n_rows):
+                raise ValueError("cross-validation indices are outside the dataset")
+        if np.intersect1d(self.train, self.validation).size:
+            raise ValueError("cross-validation train and validation rows must not overlap")
 
 
 def load_frozen_dataset(path: Path = DEFAULT_DATASET_PATH) -> pd.DataFrame:
@@ -513,7 +563,405 @@ def run_experiments(
     return per_seed, aggregate_seed_results(per_seed)
 
 
+def group_rare_relations(
+    labels: np.ndarray, relations: pd.Series | np.ndarray
+) -> np.ndarray:
+    """Apply Task 1's minimum-per-class relation grouping convention."""
+    return merge_rare_relations(labels, relations, min_stratum=MIN_STRATUM)
+
+
+def make_cv_folds(
+    labels: np.ndarray,
+    relations: pd.Series | np.ndarray,
+    seed: int,
+    n_splits: int = CV_FOLDS,
+) -> list[CrossValidationFold]:
+    """Make frozen-seed-compatible CV folds, stratified by label and grouped relation."""
+    labels = np.asarray(labels)
+    relations = np.asarray(relations, dtype=object)
+    if labels.ndim != 1 or relations.ndim != 1:
+        raise ValueError("labels and relations must be one-dimensional")
+    if labels.size == 0 or labels.size != relations.size:
+        raise ValueError("labels and relations must be non-empty and have equal length")
+    if not np.isin(labels, [0, 1]).all() or len(np.unique(labels)) != 2:
+        raise ValueError("labels must contain both binary classes 0 and 1")
+    if pd.isna(relations).any():
+        raise ValueError("relations must not contain missing values")
+    if isinstance(n_splits, bool) or n_splits != CV_FOLDS:
+        raise ValueError(f"Task 5 OOF generation requires n_splits={CV_FOLDS}")
+
+    relation_groups = group_rare_relations(labels, relations)
+    joint_strata = list(zip(labels.tolist(), relation_groups.tolist()))
+    strata_codes, unique_strata = pd.factorize(
+        pd.Series(joint_strata, dtype=object), sort=False
+    )
+    counts = np.bincount(strata_codes, minlength=len(unique_strata))
+    if np.any(counts < n_splits):
+        sparse = [
+            (joint_strata[index], int(count))
+            for index, count in enumerate(counts)
+            if count < n_splits
+        ]
+        raise ValueError(
+            "joint (forgotten_lr1e5, relation_group) strata must each contain "
+            f"at least {n_splits} rows after Task 1 rare-relation grouping; "
+            f"undersized strata (stratum, count): {sparse}"
+        )
+
+    splitter = StratifiedKFold(
+        n_splits=n_splits,
+        shuffle=True,
+        random_state=seed,
+    )
+    folds = [
+        CrossValidationFold(
+            train=np.asarray(train_indices, dtype=int),
+            validation=np.asarray(validation_indices, dtype=int),
+        )
+        for train_indices, validation_indices in splitter.split(
+            np.zeros(labels.size), strata_codes
+        )
+    ]
+    validation_counts = np.zeros(labels.size, dtype=int)
+    for fold in folds:
+        fold.validate(labels.size)
+        validation_counts[fold.validation] += 1
+    if not np.all(validation_counts == 1):
+        raise ValueError("each row must appear in exactly one OOF validation fold")
+    return folds
+
+
+def fit_predict_indices(
+    model,
+    features: pd.DataFrame,
+    labels: np.ndarray,
+    train_indices: np.ndarray,
+    prediction_indices: np.ndarray,
+) -> np.ndarray:
+    """Fit on the supplied training indices and return class-1 probabilities."""
+    labels = np.asarray(labels)
+    if features.ndim != 2 or len(features) != len(labels):
+        raise ValueError("features and labels must have the same number of rows")
+    train_indices = np.asarray(train_indices)
+    prediction_indices = np.asarray(prediction_indices)
+    if train_indices.ndim != 1 or prediction_indices.ndim != 1:
+        raise ValueError("train and prediction indices must be one-dimensional")
+    if (
+        not np.issubdtype(train_indices.dtype, np.integer)
+        or not np.issubdtype(prediction_indices.dtype, np.integer)
+    ):
+        raise ValueError("train and prediction indices must contain integers")
+    if train_indices.size == 0 or prediction_indices.size == 0:
+        raise ValueError("train and prediction indices must be non-empty")
+    if np.any(train_indices < 0) or np.any(train_indices >= len(features)):
+        raise ValueError("train indices are outside the dataset")
+    if np.any(prediction_indices < 0) or np.any(prediction_indices >= len(features)):
+        raise ValueError("prediction indices are outside the dataset")
+    if np.intersect1d(train_indices, prediction_indices).size:
+        raise ValueError("training and prediction rows must not overlap")
+
+    train_labels = labels[train_indices]
+    if set(np.unique(train_labels)) != {0, 1}:
+        raise ValueError("training rows must contain both binary classes")
+    model.fit(features.iloc[train_indices], train_labels)
+    probabilities = np.asarray(
+        model.predict_proba(features.iloc[prediction_indices]), dtype=float
+    )
+    if probabilities.ndim != 2 or probabilities.shape[0] != len(prediction_indices):
+        raise ValueError("predict_proba must return one row per held-out fact")
+    positive_columns = np.flatnonzero(np.asarray(model.classes_) == 1)
+    if len(positive_columns) != 1:
+        raise ValueError("fitted model does not expose a unique forgotten class 1")
+    scores = probabilities[:, positive_columns[0]]
+    if not np.isfinite(scores).all() or np.any((scores < 0) | (scores > 1)):
+        raise ValueError("predicted forgotten-class probabilities must be finite in [0, 1]")
+    return scores
+
+
+def aggregate_cv_metrics(fold_metrics: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate CV fold metrics by model using sample standard deviation."""
+    required = set(CV_METRIC_COLUMNS)
+    missing_columns = required - set(fold_metrics.columns)
+    if missing_columns:
+        raise ValueError(f"CV metrics are missing columns: {sorted(missing_columns)}")
+    if fold_metrics.empty:
+        raise ValueError("CV metrics must not be empty")
+
+    rows = []
+    for (population, model_name), group in fold_metrics.groupby(
+        ["population", "model"], sort=False
+    ):
+        row: dict[str, int | float | str] = {
+            "population": population,
+            "model": model_name,
+            "n_evaluations": len(group),
+        }
+        for metric in METRIC_NAMES:
+            row[f"{metric}_mean"] = group[metric].mean()
+            row[f"{metric}_std"] = group[metric].std(ddof=1)
+        rows.append(row)
+
+    summary = pd.DataFrame(rows, columns=CV_SUMMARY_COLUMNS)
+    model_order = {"logistic_regression_full": 0, "lightgbm_full": 1}
+    summary["_model_order"] = summary["model"].map(model_order)
+    return (
+        summary.sort_values("_model_order", kind="stable")
+        .drop(columns="_model_order")
+        .reset_index(drop=True)
+    )
+
+
+def select_final_risk_model(commit2_summary: pd.DataFrame) -> str:
+    """Select final rehearsal model only from frozen known test mean AP results."""
+    required = {"population", "model", "auprc_mean"}
+    missing_columns = required - set(commit2_summary.columns)
+    if missing_columns:
+        raise ValueError(
+            f"Commit 2 summary is missing columns: {sorted(missing_columns)}"
+        )
+    candidates = commit2_summary.loc[
+        (commit2_summary["population"] == "known")
+        & commit2_summary["model"].isin(
+            ("logistic_regression_full", "lightgbm_full")
+        ),
+        ["model", "auprc_mean"],
+    ].copy()
+    candidates["auprc_mean"] = pd.to_numeric(candidates["auprc_mean"], errors="coerce")
+    if (
+        len(candidates) != 2
+        or candidates["auprc_mean"].isna().any()
+        or not np.isfinite(candidates["auprc_mean"].to_numpy(dtype=float)).all()
+    ):
+        raise ValueError(
+            "Commit 2 summary must contain finite known-population mean AUPRC "
+            "for logistic_regression_full and lightgbm_full"
+        )
+    return str(candidates.sort_values("auprc_mean", ascending=False).iloc[0]["model"])
+
+
+def validate_oof_score_artifact(
+    scores: pd.DataFrame,
+    known_ids,
+    seeds: tuple[int, ...] = CV_SEEDS,
+) -> None:
+    """Validate complete unique OOF coverage for both models and every seed."""
+    missing_columns = set(CV_SCORE_COLUMNS) - set(scores.columns)
+    if missing_columns:
+        raise ValueError(f"OOF score table is missing columns: {sorted(missing_columns)}")
+    known_id_set = set(known_ids)
+    expected_models = ("logistic_regression_full", "lightgbm_full")
+    if set(scores["population"].unique()) != {"known"}:
+        raise ValueError("OOF score table must contain only the known population")
+    if set(scores["model"].unique()) != set(expected_models):
+        raise ValueError(f"OOF score table must contain exactly these models: {expected_models}")
+    if set(scores["seed"].unique()) != set(seeds):
+        raise ValueError(f"OOF score table must contain exactly seeds {seeds}")
+    if scores.duplicated(["model", "seed", "id"]).any():
+        raise ValueError("OOF score table contains duplicate model/seed/id rows")
+    expected_rows = len(known_id_set) * len(expected_models) * len(seeds)
+    if len(scores) != expected_rows:
+        raise ValueError(f"OOF score table must contain exactly {expected_rows} rows")
+    if scores["id"].isna().any() or scores["true_label"].isna().any():
+        raise ValueError("OOF score table contains missing IDs or true labels")
+    if not np.isin(scores["true_label"].to_numpy(), [0, 1]).all():
+        raise ValueError("OOF score table true_label must be binary 0/1")
+    risk = pd.to_numeric(scores["forgetting_risk"], errors="coerce").to_numpy(dtype=float)
+    if not np.isfinite(risk).all() or np.any((risk < 0) | (risk > 1)):
+        raise ValueError("OOF risk values must be finite and in [0, 1]")
+
+    for model_name in expected_models:
+        for seed in seeds:
+            rows = scores.loc[
+                (scores["model"] == model_name) & (scores["seed"] == seed)
+            ]
+            if set(rows["id"]) != known_id_set or len(rows) != len(known_id_set):
+                raise ValueError(
+                    f"OOF scores for {model_name} seed {seed} do not cover known IDs exactly once"
+                )
+    fold_assignments = scores.groupby(["seed", "id"])["fold"].nunique()
+    if not (fold_assignments == 1).all():
+        raise ValueError("each fact must have the same OOF fold across both models per seed")
+
+
+def build_final_risk_scores(
+    oof_scores: pd.DataFrame,
+    known_ids,
+    final_model: str,
+    seeds: tuple[int, ...] = CV_SEEDS,
+) -> pd.DataFrame:
+    """Average the selected model's seed 0/1/2 OOF risks for each known fact."""
+    if final_model not in ("logistic_regression_full", "lightgbm_full"):
+        raise ValueError("final_model must be one of the two full-feature classifiers")
+    validate_oof_score_artifact(oof_scores, known_ids, seeds)
+    selected = oof_scores.loc[oof_scores["model"] == final_model].copy()
+    if set(selected["seed"].unique()) != set(seeds):
+        raise ValueError(f"final risk requires OOF scores from seeds {seeds}")
+
+    per_id = selected.groupby("id").agg(
+        forgetting_risk=("forgetting_risk", "mean"),
+        seed_count=("seed", "nunique"),
+    )
+    if not (per_id["seed_count"] == len(seeds)).all():
+        raise ValueError("final risk requires exactly one score per known ID from every seed")
+    if set(per_id.index) != set(known_ids) or len(per_id) != len(set(known_ids)):
+        raise ValueError("final risk scores do not cover known IDs exactly once")
+    result = per_id[["forgetting_risk"]].reset_index().sort_values("id").reset_index(drop=True)
+    result["forgetting_risk"] = pd.to_numeric(
+        result["forgetting_risk"], errors="raise"
+    ).astype(float)
+    if not np.isfinite(result["forgetting_risk"]).all() or not result[
+        "forgetting_risk"
+    ].between(0, 1).all():
+        raise ValueError("final risk values must be finite and in [0, 1]")
+    return result[["id", "forgetting_risk"]]
+
+
+def run_oof_experiment(
+    dataset: pd.DataFrame | None = None,
+    *,
+    dataset_path: Path = DEFAULT_DATASET_PATH,
+    commit2_summary: pd.DataFrame | None = None,
+    commit2_summary_path: Path = SUMMARY_OUTPUT,
+    seeds: tuple[int, ...] = CV_SEEDS,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, str]:
+    """Run known-only 5-fold OOF model evaluation and build rehearsal risks."""
+    if tuple(seeds) != CV_SEEDS:
+        raise ValueError(f"Task 5 OOF generation requires exactly seeds {CV_SEEDS}")
+    if dataset is None:
+        dataset = load_frozen_dataset(dataset_path)
+    else:
+        dataset = validate_frozen_dataset(dataset)
+    known = select_population(dataset, "known")
+    if known.empty:
+        raise ValueError("known population is empty")
+    if commit2_summary is None:
+        commit2_summary = pd.read_csv(commit2_summary_path)
+    final_model = select_final_risk_model(commit2_summary)
+
+    labels = known[TARGET_COLUMN].to_numpy(dtype=int)
+    relations = known["relation"].to_numpy(dtype=object)
+    features = select_predictor_features(known)
+    known_ids = known["id"].tolist()
+    score_records: list[dict[str, int | float | str]] = []
+    metric_records: list[dict[str, int | float | str]] = []
+
+    for seed in seeds:
+        folds = make_cv_folds(labels, relations, seed=seed, n_splits=CV_FOLDS)
+        oof_counts = np.zeros(len(known), dtype=int)
+        for fold_index, fold in enumerate(folds):
+            fold.validate(len(known))
+            oof_counts[fold.validation] += 1
+            model_definitions = (
+                ("logistic_regression_full", make_logistic_pipeline(seed)),
+                ("lightgbm_full", make_lightgbm_classifier(seed)),
+            )
+            for model_name, model in model_definitions:
+                validation_scores = fit_predict_indices(
+                    model,
+                    features,
+                    labels,
+                    fold.train,
+                    fold.validation,
+                )
+                validation_labels = labels[fold.validation]
+                metrics = evaluate_predictions(
+                    validation_labels,
+                    validation_scores,
+                    threshold=0.5,
+                    k_values=(1, 5, 10),
+                )
+                score_records.extend(
+                    {
+                        "id": known_ids[row_index],
+                        "population": "known",
+                        "model": model_name,
+                        "seed": seed,
+                        "fold": fold_index,
+                        "true_label": int(labels[row_index]),
+                        "forgetting_risk": float(score),
+                    }
+                    for row_index, score in zip(fold.validation, validation_scores)
+                )
+                metric_records.append(
+                    {
+                        "population": "known",
+                        "model": model_name,
+                        "seed": seed,
+                        "fold": fold_index,
+                        "n_train": len(fold.train),
+                        "n_validation": len(fold.validation),
+                        "auprc": metrics["auprc"],
+                        "f1": metrics["f1"],
+                        "recall_at_1": metrics["recall_at_k"][1],
+                        "recall_at_5": metrics["recall_at_k"][5],
+                        "recall_at_10": metrics["recall_at_k"][10],
+                    }
+                )
+        if not np.all(oof_counts == 1):
+            raise ValueError(f"seed {seed}: each known fact must be OOF exactly once")
+
+    oof_scores = pd.DataFrame(score_records, columns=CV_SCORE_COLUMNS)
+    oof_scores["_model_order"] = oof_scores["model"].map(
+        {"logistic_regression_full": 0, "lightgbm_full": 1}
+    )
+    oof_scores = (
+        oof_scores.sort_values(["_model_order", "seed", "fold", "id"], kind="stable")
+        .drop(columns="_model_order")
+        .reset_index(drop=True)
+    )
+    validate_oof_score_artifact(oof_scores, known_ids, seeds)
+
+    fold_metrics = pd.DataFrame(metric_records, columns=CV_METRIC_COLUMNS)
+    fold_metrics["_model_order"] = fold_metrics["model"].map(
+        {"logistic_regression_full": 0, "lightgbm_full": 1}
+    )
+    fold_metrics = (
+        fold_metrics.sort_values(["_model_order", "seed", "fold"], kind="stable")
+        .drop(columns="_model_order")
+        .reset_index(drop=True)
+    )
+    cv_summary = aggregate_cv_metrics(fold_metrics)
+    final_risk = build_final_risk_scores(oof_scores, known_ids, final_model, seeds)
+    return oof_scores, fold_metrics, cv_summary, final_risk, final_model
+
+
+def save_oof_outputs(
+    oof_scores: pd.DataFrame,
+    fold_metrics: pd.DataFrame,
+    cv_summary: pd.DataFrame,
+    final_risk: pd.DataFrame,
+    results_dir: Path = RESULTS_DIR,
+) -> None:
+    """Write only the four approved Commit 3 result artifacts."""
+    results_dir = Path(results_dir)
+    results_dir.mkdir(parents=True, exist_ok=True)
+    oof_scores.to_csv(results_dir / OOF_SCORE_OUTPUT.name, index=False)
+    final_risk.to_csv(results_dir / FINAL_RISK_OUTPUT.name, index=False)
+    fold_metrics.to_csv(results_dir / CV_METRICS_OUTPUT.name, index=False)
+    cv_summary.to_csv(results_dir / CV_SUMMARY_OUTPUT.name, index=False)
+
+
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run Task 5 frozen evaluation or OOF integration.")
+    parser.add_argument(
+        "--cv",
+        action="store_true",
+        help="run known-population 5-fold OOF integration without changing Commit 2 tables",
+    )
+    args = parser.parse_args()
+    if args.cv:
+        oof_scores, fold_metrics, cv_summary, final_risk, final_model = run_oof_experiment()
+        save_oof_outputs(oof_scores, fold_metrics, cv_summary, final_risk)
+        print(f"Selected final rehearsal risk model from Commit 2 known mean AUPRC: {final_model}")
+        print(f"Saved OOF scores by model: {OOF_SCORE_OUTPUT} ({len(oof_scores)} rows)")
+        print(f"Saved final rehearsal risk scores: {FINAL_RISK_OUTPUT} ({len(final_risk)} rows)")
+        print(f"Saved CV metrics by fold: {CV_METRICS_OUTPUT} ({len(fold_metrics)} rows)")
+        print(f"Saved CV summary: {CV_SUMMARY_OUTPUT} ({len(cv_summary)} rows)")
+        print(cv_summary.to_string(index=False))
+        return
+
     per_seed, summary = run_experiments()
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     per_seed.to_csv(PER_SEED_OUTPUT, index=False)

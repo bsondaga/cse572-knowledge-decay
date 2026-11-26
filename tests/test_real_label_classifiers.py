@@ -5,27 +5,41 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+from sklearn.pipeline import Pipeline
 
 from src.real_label_classifiers import (
+    CV_METRIC_COLUMNS,
+    CV_SCORE_COLUMNS,
+    CV_SUMMARY_COLUMNS,
     PREDICTOR_COLUMNS,
     FrozenSplitIndices,
     PER_SEED_COLUMNS,
     SUMMARY_COLUMNS,
+    CrossValidationFold,
     aggregate_seed_results,
+    aggregate_cv_metrics,
+    build_final_risk_scores,
     evaluate_test_scores,
+    fit_predict_indices,
     fit_predict_test_scores,
+    group_rare_relations,
     load_frozen_dataset,
     load_frozen_split,
+    make_cv_folds,
     make_lightgbm_classifier,
     make_logistic_pipeline,
     map_split_indices,
     prevalence_test_scores,
+    run_oof_experiment,
+    select_final_risk_model,
     run_experiments,
+    validate_oof_score_artifact,
     select_population,
     select_predictor_features,
     select_popularity_features,
     validate_frozen_dataset,
 )
+from src.rehearsal import load_risk_scores
 
 RELATION_COLUMNS = tuple(column for column in PREDICTOR_COLUMNS if column.startswith("rel_"))
 
@@ -95,6 +109,75 @@ def make_experiment_dataset(row_count=60) -> pd.DataFrame:
         )
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+def make_cv_dataset() -> pd.DataFrame:
+    relations = (
+        ["author"] * 40
+        + ["country"] * 40
+        + ["color"] * 4
+        + ["composer"] * 4
+        + ["director"] * 4
+        + ["mother"] * 4
+        + ["father"] * 4
+    )
+    relation_feature = {
+        relation: f"rel_{relation.replace(' ', '_')}" for relation in set(relations)
+    }
+    rows = []
+    for index, relation in enumerate(relations):
+        row = {
+            "id": 80000 + index * 13,
+            "relation": relation,
+            "subject_pop_log": float(index % 17),
+            "object_pop_log": float(index % 11),
+            "subject_pop": 100 + index,
+            "object_pop": 200 + index,
+            "degree": index % 8,
+            "guess_count": index % 4,
+            "guessable": 0,
+            "pop_bucket": index % 4,
+            "s_pop_z": float(index),
+            "forgotten_lr1e5": index % 2,
+            "forgotten_default": (index + 1) % 2,
+        }
+        row.update(
+            {
+                column: int(column == relation_feature.get(relation))
+                for column in RELATION_COLUMNS
+            }
+        )
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def make_commit2_summary(lr_auprc=0.7963, lgbm_auprc=0.7806):
+    return pd.DataFrame(
+        [
+            {"population": "known", "model": "logistic_regression_full", "auprc_mean": lr_auprc},
+            {"population": "known", "model": "lightgbm_full", "auprc_mean": lgbm_auprc},
+            {"population": "all", "model": "lightgbm_full", "auprc_mean": 0.9},
+        ]
+    )
+
+
+def make_oof_artifact(ids):
+    rows = []
+    for model in ("logistic_regression_full", "lightgbm_full"):
+        for seed in (0, 1, 2):
+            for index, fact_id in enumerate(ids):
+                rows.append(
+                    {
+                        "id": fact_id,
+                        "population": "known",
+                        "model": model,
+                        "seed": seed,
+                        "fold": index % 5,
+                        "true_label": index % 2,
+                        "forgetting_risk": (index + seed + (model == "lightgbm_full")) / 20,
+                    }
+                )
+    return pd.DataFrame(rows, columns=CV_SCORE_COLUMNS)
 
 
 class SpyProbabilityModel:
@@ -470,6 +553,172 @@ class FrozenModelEvaluationTests(unittest.TestCase):
                 expected_counts[(row["population"], row["seed"])],
             )
         self.assertEqual(len(captured), 2 * 2 * 3)
+
+
+class CrossValidationTests(unittest.TestCase):
+    def setUp(self):
+        self.dataset = validate_frozen_dataset(make_cv_dataset())
+        self.labels = self.dataset["forgotten_lr1e5"].to_numpy()
+        self.relations = self.dataset["relation"].to_numpy()
+
+    def test_task1_rare_relation_grouping_makes_joint_strata_valid(self):
+        groups = group_rare_relations(self.labels, self.relations)
+        self.assertEqual(set(groups[-20:]), {"other"})
+        counts = pd.DataFrame({"label": self.labels, "relation_group": groups}).groupby(
+            ["label", "relation_group"]
+        ).size()
+        self.assertTrue((counts >= 5).all())
+
+    def test_undersized_joint_stratum_fails_instead_of_falling_back(self):
+        labels = np.array([0] * 6 + [1] * 4)
+        relations = np.array(["one"] * 10)
+
+        with self.assertRaisesRegex(ValueError, "joint .*strata.*at least 5"):
+            make_cv_folds(labels, relations, seed=0)
+
+    def test_five_fold_assignment_is_deterministic_for_same_seed(self):
+        first = make_cv_folds(self.labels, self.relations, seed=1)
+        second = make_cv_folds(self.labels, self.relations, seed=1)
+
+        self.assertEqual(len(first), 5)
+        for fold_a, fold_b in zip(first, second):
+            np.testing.assert_array_equal(fold_a.train, fold_b.train)
+            np.testing.assert_array_equal(fold_a.validation, fold_b.validation)
+
+    def test_every_fact_is_oof_once_and_folds_do_not_overlap(self):
+        folds = make_cv_folds(self.labels, self.relations, seed=2)
+        validation_counts = np.zeros(len(self.labels), dtype=int)
+
+        for fold in folds:
+            fold.validate(len(self.labels))
+            self.assertEqual(np.intersect1d(fold.train, fold.validation).size, 0)
+            validation_counts[fold.validation] += 1
+
+        np.testing.assert_array_equal(validation_counts, np.ones(len(self.labels), dtype=int))
+
+    def test_fit_and_scaling_use_only_training_fold_rows(self):
+        features = select_predictor_features(self.dataset).copy()
+        fold = make_cv_folds(self.labels, self.relations, seed=0)[0]
+        features.iloc[fold.validation, 0] = 100000.0
+        model = make_logistic_pipeline(seed=0)
+
+        scores = fit_predict_indices(
+            model, features, self.labels, fold.train, fold.validation
+        )
+
+        np.testing.assert_allclose(
+            model.named_steps["scaler"].mean_,
+            features.iloc[fold.train].mean(axis=0).to_numpy(),
+        )
+        self.assertEqual(len(scores), len(fold.validation))
+        self.assertTrue(np.all((scores >= 0) & (scores <= 1)))
+
+    def test_oof_experiment_artifact_coverage_schemas_and_model_choice(self):
+        def fake_fit_predict(model, features, labels, train_indices, validation_indices):
+            probability = 0.8 if isinstance(model, Pipeline) else 0.2
+            return np.full(len(validation_indices), probability)
+
+        with patch(
+            "src.real_label_classifiers.fit_predict_indices",
+            side_effect=fake_fit_predict,
+        ):
+            oof_scores, fold_metrics, summary, final_scores, final_model = run_oof_experiment(
+                self.dataset,
+                commit2_summary=make_commit2_summary(),
+            )
+
+        self.assertEqual(final_model, "logistic_regression_full")
+        self.assertEqual(tuple(oof_scores.columns), CV_SCORE_COLUMNS)
+        self.assertEqual(tuple(fold_metrics.columns), CV_METRIC_COLUMNS)
+        self.assertEqual(tuple(summary.columns), CV_SUMMARY_COLUMNS)
+        self.assertEqual(len(oof_scores), len(self.dataset) * 3 * 2)
+        self.assertEqual(len(fold_metrics), 3 * 5 * 2)
+        self.assertEqual(len(summary), 2)
+        validate_oof_score_artifact(oof_scores, self.dataset["id"], (0, 1, 2))
+        self.assertEqual(len(final_scores), len(self.dataset))
+        self.assertEqual(list(final_scores.columns), ["id", "forgetting_risk"])
+        self.assertEqual(final_scores["id"].nunique(), len(self.dataset))
+        self.assertTrue(final_scores["forgetting_risk"].between(0, 1).all())
+        np.testing.assert_allclose(final_scores["forgetting_risk"], 0.8)
+
+    def test_commit2_known_test_auprc_selects_logistic_not_cv_scores(self):
+        self.assertEqual(
+            select_final_risk_model(make_commit2_summary()),
+            "logistic_regression_full",
+        )
+        self.assertEqual(
+            select_final_risk_model(make_commit2_summary(0.7, 0.8)),
+            "lightgbm_full",
+        )
+
+    def test_final_risk_averages_exactly_three_seed_scores_per_id(self):
+        ids = [12, 88, 104, 305]
+        scores = make_oof_artifact(ids)
+
+        final = build_final_risk_scores(
+            scores, ids, "logistic_regression_full", seeds=(0, 1, 2)
+        )
+
+        self.assertEqual(list(final.columns), ["id", "forgetting_risk"])
+        self.assertEqual(final["id"].tolist(), sorted(ids))
+        expected = {
+            fact_id: np.mean(
+                [
+                    (index + seed) / 20
+                    for seed in (0, 1, 2)
+                ]
+            )
+            for index, fact_id in enumerate(ids)
+        }
+        self.assertEqual(final["id"].nunique(), len(ids))
+        self.assertEqual(set(final["id"]), set(ids))
+        for row in final.itertuples(index=False):
+            self.assertAlmostEqual(row.forgetting_risk, expected[row.id])
+
+    def test_rehearsal_loader_accepts_exact_final_risk_schema_and_coverage(self):
+        ids = [12, 88, 104, 305]
+        final = build_final_risk_scores(
+            make_oof_artifact(ids), ids, "logistic_regression_full"
+        )
+        facts = pd.DataFrame({"id": ids, "s_pop": [10, 20, 30, 40]})
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "risk_scores.csv"
+            final.to_csv(path, index=False)
+
+            merged = load_risk_scores(facts, path)
+
+        self.assertEqual(len(merged), len(ids))
+        self.assertEqual(merged["id"].nunique(), len(ids))
+        self.assertEqual(set(merged["id"]), set(ids))
+        self.assertTrue(merged["forgetting_risk"].between(0, 1).all())
+
+    def test_cv_summary_mean_and_sample_std_are_hand_calculated(self):
+        fold_metrics = pd.DataFrame(
+            [
+                {
+                    "population": "known",
+                    "model": "logistic_regression_full",
+                    "seed": seed,
+                    "fold": fold,
+                    "n_train": 8,
+                    "n_validation": 2,
+                    "auprc": value,
+                    "f1": value,
+                    "recall_at_1": value,
+                    "recall_at_5": value,
+                    "recall_at_10": value,
+                }
+                for seed, value in enumerate((0.2, 0.4, 0.6))
+                for fold in [0]
+            ],
+            columns=CV_METRIC_COLUMNS,
+        )
+
+        summary = aggregate_cv_metrics(fold_metrics)
+
+        self.assertEqual(tuple(summary.columns), CV_SUMMARY_COLUMNS)
+        self.assertAlmostEqual(summary.loc[0, "auprc_mean"], 0.4)
+        self.assertAlmostEqual(summary.loc[0, "auprc_std"], 0.2)
 
 
 if __name__ == "__main__":
