@@ -50,6 +50,20 @@ python src/make_real_dataset.py
 - `results/splits/known/seed{0,1,2}.csv`: 70/15/15 split of the 285 non-guessable facts (primary)
 - `results/splits/all/seed{0,1,2}.csv`: same for all 929 facts
 
+### Enriched features
+
+`results/frozen/real_dataset_enriched.csv` has the same 929 rows, order and columns as
+`results/frozen/real_dataset.csv`, plus `question_length`, `question_chars`, `answer_length`,
+`answer_chars`, `entity_type` and one-hot `et_person`, `et_place`, `et_creative_work`, `et_other`.
+`confidence` columns are added only if `data/processed/pre_update_results.csv` has them.
+Rebuild with one command (needs `data/processed/popqa_clean.csv`):
+
+```
+python src/enrich_features.py
+```
+
+Correlations and missing-value counts are in `results/feature_enrichment_stats.md`.
+
 Splits are stratified on `forgotten_lr1e5` and relation; rare relations are merged into "other".
 Load them with `load_real_dataset()` and `load_split(seed, population)` from `src/make_real_dataset.py`.
 
@@ -80,7 +94,25 @@ checkpoint under `results/controlled_update/pythia-160m-tinystories/`. The first
 run downloads the model and dataset. Use `--sample-size`, `--batch-size`,
 `--max-length`, `--epochs`, `--learning-rate`, and `--seed` to adjust the pilot.
 The dataset, split, text column, model, and output directory are also
-configurable from the command line.
+configurable from the command line. To include a Task 3 selection CSV, pass
+`--rehearsal-file`; the selected `fact_id` values are resolved against
+`data/processed/popqa_clean.csv` and added as `Q: question` / `A: answer`
+examples. For example:
+
+```bash
+python src/controlled_update.py --rehearsal-file results/rehearsal/selections/random_budget5_seed0.csv
+```
+
+After baseline inference is available, `--only-known` also evaluates the
+updated checkpoint on only the baseline-correct facts (929 by default) and
+prints the forgetting rate. It saves this subset separately to
+`data/processed/post_update_known_results.csv` and
+`results/post_update_known_metrics.json`; use the full post-update inference
+command below when generating inputs for `forgetting_labels.py`.
+
+```bash
+python src/controlled_update.py --rehearsal-file PATH_TO_SELECTION.csv --only-known
+```
 
 ## Pre-update PopQA inference
 

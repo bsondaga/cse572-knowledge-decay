@@ -140,6 +140,7 @@ known-fact dataset from Task 1 and predicted risk scores
 
 from Task 5.
 
-Compatibility with the Task 6 training interface must be
-
-verified when that interface becomes available.
+Pass a generated selection to `src/controlled_update.py` with
+`--rehearsal-file`. Task 6 resolves the selected `fact_id` values against
+`data/processed/popqa_clean.csv` and adds them to the update examples in the
+same `Q: question` / `A: answer` format used for inference.
