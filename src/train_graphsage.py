@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import random
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,7 +9,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from torch import Tensor
+from torch import Tensor, nn
+
+from src.graphsage_model import GraphSAGEModel
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LABELS_PATH = ROOT / "results" / "frozen" / "real_dataset.csv"
@@ -16,6 +20,261 @@ KNOWN_POPULATION = "known"
 TARGET_COLUMN = "forgotten_lr1e5"
 SUPPORTED_SEEDS = (0, 1, 2)
 SPLIT_NAMES = ("train", "val", "test")
+EMBEDDING_DIM = 16
+
+
+@dataclass(frozen=True)
+class GraphSAGETrainingConfig:
+    learning_rate: float = 0.01
+    weight_decay: float = 5e-4
+    max_epochs: int = 300
+    patience: int = 20
+    min_delta: float = 1e-4
+
+    def validate(self) -> None:
+        if not np.isfinite(self.learning_rate) or self.learning_rate <= 0:
+            raise ValueError("learning_rate must be finite and positive")
+        if not np.isfinite(self.weight_decay) or self.weight_decay < 0:
+            raise ValueError("weight_decay must be finite and non-negative")
+        if (
+            isinstance(self.max_epochs, bool)
+            or not isinstance(self.max_epochs, (int, np.integer))
+            or self.max_epochs < 1
+        ):
+            raise ValueError("max_epochs must be a positive integer")
+        if (
+            isinstance(self.patience, bool)
+            or not isinstance(self.patience, (int, np.integer))
+            or self.patience < 1
+        ):
+            raise ValueError("patience must be a positive integer")
+        if not np.isfinite(self.min_delta) or self.min_delta < 0:
+            raise ValueError("min_delta must be finite and non-negative")
+
+
+@dataclass
+class GraphSAGETrainingResult:
+    model: nn.Module
+    best_epoch: int
+    best_validation_loss: float
+    stopped_early: bool
+    loss_history: list[dict[str, int | float | bool]]
+    pos_weight: float
+
+
+class GraphSAGEClassifier(nn.Module):
+    """GraphSAGE embedding encoder followed by a single forgotten-class logit."""
+
+    def __init__(
+        self,
+        encoder: nn.Module | None = None,
+        embedding_dim: int = EMBEDDING_DIM,
+    ) -> None:
+        super().__init__()
+        if embedding_dim < 1:
+            raise ValueError("embedding_dim must be positive")
+        self.encoder = encoder or GraphSAGEModel(output_dim=embedding_dim)
+        self.classifier = nn.Linear(embedding_dim, 1)
+
+    def forward(self, x: Tensor, edge_index: Tensor) -> Tensor:
+        embeddings = self.encoder(x, edge_index)
+        logits = self.classifier(embeddings).squeeze(-1)
+        if logits.ndim != 1 or logits.shape[0] != x.shape[0]:
+            raise ValueError("GraphSAGE classifier must return one logit per graph node")
+        if not torch.isfinite(logits).all():
+            raise ValueError("GraphSAGE classifier produced non-finite logits")
+        return logits
+
+
+def seed_everything(seed: int, deterministic: bool = True) -> None:
+    """Seed Python, NumPy, and PyTorch for repeatable CPU/GPU runs."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.deterministic = deterministic
+        torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(deterministic, warn_only=True)
+
+
+def compute_train_pos_weight(masks: GraphLabelMasks) -> Tensor:
+    """Compute retained/forgotten weight using only frozen training labels."""
+    masks.validate(len(masks.labels))
+    train_mask = masks.train_mask
+    if not torch.any(train_mask & masks.labeled_mask):
+        raise ValueError("train mask must contain labeled nodes")
+    if torch.any(train_mask & ~masks.labeled_mask):
+        raise ValueError("train mask must select only labeled nodes")
+
+    train_labels = masks.labels[train_mask]
+    if not torch.isfinite(train_labels).all() or not torch.all(
+        (train_labels == 0) | (train_labels == 1)
+    ):
+        raise ValueError("training labels must contain only finite binary 0/1 values")
+    positives = int((train_labels == 1).sum())
+    negatives = int((train_labels == 0).sum())
+    if positives == 0 or negatives == 0:
+        raise ValueError("training labels must contain both forgotten and retained classes")
+
+    weight = negatives / positives
+    if not np.isfinite(weight) or weight <= 0:
+        raise ValueError("training pos_weight must be finite and positive")
+    return torch.tensor(weight, dtype=torch.float32, device=masks.labels.device)
+
+
+def masked_bce_loss(
+    logits: Tensor,
+    labels: Tensor,
+    mask: Tensor,
+    criterion: nn.BCEWithLogitsLoss,
+) -> Tensor:
+    """Compute BCE only for the selected labeled-node mask."""
+    if logits.ndim != 1 or labels.ndim != 1 or mask.ndim != 1:
+        raise ValueError("logits, labels, and mask must be one-dimensional")
+    if len(logits) != len(labels) or len(mask) != len(labels):
+        raise ValueError("logits, labels, and mask must have equal lengths")
+    if mask.dtype != torch.bool:
+        raise ValueError("supervised loss mask must use torch.bool")
+    if not torch.any(mask):
+        raise ValueError("supervised loss mask must select at least one node")
+    selected_labels = labels[mask]
+    if not torch.isfinite(selected_labels).all() or not torch.all(
+        (selected_labels == 0) | (selected_labels == 1)
+    ):
+        raise ValueError("supervised labels must contain only finite binary 0/1 values")
+    return criterion(logits[mask], selected_labels)
+
+
+def train_graphsage(
+    graph,
+    masks: GraphLabelMasks,
+    seed: int,
+    config: GraphSAGETrainingConfig | None = None,
+    model: nn.Module | None = None,
+) -> GraphSAGETrainingResult:
+    """Train on the full graph with train-mask loss and validation-only stopping."""
+    config = config or GraphSAGETrainingConfig()
+    config.validate()
+    if not hasattr(graph, "x") or not hasattr(graph, "edge_index"):
+        raise ValueError("graph must provide x and edge_index tensors")
+    if graph.x.ndim != 2 or graph.edge_index.ndim != 2 or graph.edge_index.shape[0] != 2:
+        raise ValueError("graph requires x [num_nodes, features] and edge_index [2, edges]")
+    num_nodes = graph.x.shape[0]
+    masks.validate(num_nodes)
+    seed_everything(seed)
+
+    device = graph.x.device
+    labels = masks.labels.to(device)
+    train_mask = masks.train_mask.to(device)
+    validation_mask = masks.validation_mask.to(device)
+    # Validate that training targets contain both classes before allocating the model.
+    active_masks = GraphLabelMasks(
+        labels=labels,
+        labeled_mask=masks.labeled_mask.to(device),
+        train_mask=train_mask,
+        validation_mask=validation_mask,
+        test_mask=masks.test_mask.to(device),
+        node_ids=masks.node_ids,
+    )
+    pos_weight = compute_train_pos_weight(active_masks)
+
+    classifier = (model or GraphSAGEClassifier()).to(device)
+    optimizer = torch.optim.Adam(
+        classifier.parameters(),
+        lr=config.learning_rate,
+        weight_decay=config.weight_decay,
+    )
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    best_validation_loss = float("inf")
+    best_epoch = 0
+    best_state: dict[str, Tensor] | None = None
+    epochs_without_improvement = 0
+    history: list[dict[str, int | float | bool]] = []
+    stopped_early = False
+
+    for epoch in range(1, config.max_epochs + 1):
+        classifier.train()
+        optimizer.zero_grad(set_to_none=True)
+        train_logits = classifier(graph.x, graph.edge_index)
+        train_loss = masked_bce_loss(train_logits, labels, train_mask, criterion)
+        train_loss.backward()
+        optimizer.step()
+
+        classifier.eval()
+        with torch.no_grad():
+            validation_logits = classifier(graph.x, graph.edge_index)
+            validation_loss = masked_bce_loss(
+                validation_logits, labels, validation_mask, criterion
+            )
+
+        train_loss_value = float(train_loss.detach().cpu())
+        validation_loss_value = float(validation_loss.detach().cpu())
+        if not np.isfinite(train_loss_value) or not np.isfinite(validation_loss_value):
+            raise ValueError("training or validation loss became non-finite")
+
+        is_best = validation_loss_value < best_validation_loss - config.min_delta
+        if is_best:
+            best_validation_loss = validation_loss_value
+            best_epoch = epoch
+            best_state = {
+                name: value.detach().clone()
+                for name, value in classifier.state_dict().items()
+            }
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+
+        history.append(
+            {
+                "epoch": epoch,
+                "train_loss": train_loss_value,
+                "validation_loss": validation_loss_value,
+                "is_best": is_best,
+            }
+        )
+        if epochs_without_improvement >= config.patience:
+            stopped_early = epoch < config.max_epochs
+            break
+
+    if best_state is None:
+        raise RuntimeError("training did not produce a finite best validation checkpoint")
+    classifier.load_state_dict(best_state)
+    return GraphSAGETrainingResult(
+        model=classifier,
+        best_epoch=best_epoch,
+        best_validation_loss=best_validation_loss,
+        stopped_early=stopped_early,
+        loss_history=history,
+        pos_weight=float(pos_weight.detach().cpu()),
+    )
+
+
+def predict_graph_probabilities(
+    model: nn.Module,
+    graph,
+    mask: Tensor | None = None,
+) -> Tensor:
+    """Run full-graph inference, sigmoid logits, and optionally select node scores."""
+    if not hasattr(graph, "x") or not hasattr(graph, "edge_index"):
+        raise ValueError("graph must provide x and edge_index tensors")
+    model.eval()
+    with torch.no_grad():
+        logits = model(graph.x, graph.edge_index)
+        if logits.ndim != 1 or logits.shape[0] != graph.x.shape[0]:
+            raise ValueError("model must return one logit per graph node")
+        probabilities = torch.sigmoid(logits)
+
+    if not torch.isfinite(probabilities).all() or torch.any(
+        (probabilities < 0) | (probabilities > 1)
+    ):
+        raise ValueError("predicted probabilities must be finite and in [0, 1]")
+    if mask is None:
+        return probabilities
+    if mask.ndim != 1 or len(mask) != graph.x.shape[0] or mask.dtype != torch.bool:
+        raise ValueError("prediction mask must be torch.bool with length num_graph_nodes")
+    return probabilities[mask.to(probabilities.device)]
 
 
 @dataclass(frozen=True)
