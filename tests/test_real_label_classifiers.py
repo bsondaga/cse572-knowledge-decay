@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -8,11 +9,21 @@ import pandas as pd
 from src.real_label_classifiers import (
     PREDICTOR_COLUMNS,
     FrozenSplitIndices,
+    PER_SEED_COLUMNS,
+    SUMMARY_COLUMNS,
+    aggregate_seed_results,
+    evaluate_test_scores,
+    fit_predict_test_scores,
     load_frozen_dataset,
     load_frozen_split,
+    make_lightgbm_classifier,
+    make_logistic_pipeline,
     map_split_indices,
+    prevalence_test_scores,
+    run_experiments,
     select_population,
     select_predictor_features,
+    select_popularity_features,
     validate_frozen_dataset,
 )
 
@@ -56,6 +67,52 @@ def make_assignments(dataset: pd.DataFrame) -> pd.DataFrame:
             "split": ["test", "val", "train", "val", "train"],
         }
     )
+
+
+def make_experiment_dataset(row_count=60) -> pd.DataFrame:
+    rows = []
+    for index in range(row_count):
+        row = {
+            "id": 10000 + index * 17,
+            "relation": "author" if index % 2 else "country",
+            "subject_pop_log": float(index),
+            "object_pop_log": float(index % 7),
+            "subject_pop": 10 + index,
+            "object_pop": 20 + index,
+            "degree": index % 5,
+            "guess_count": index % 3,
+            "guessable": int(index % 4 == 3),
+            "pop_bucket": index % 4,
+            "s_pop_z": float(index),
+            "forgotten_lr1e5": index % 2,
+            "forgotten_default": (index + 1) % 2,
+        }
+        row.update(
+            {
+                column: int(column == RELATION_COLUMNS[index % len(RELATION_COLUMNS)])
+                for column in RELATION_COLUMNS
+            }
+        )
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+class SpyProbabilityModel:
+    classes_ = np.array([0, 1])
+
+    def __init__(self):
+        self.train_features = None
+        self.train_labels = None
+        self.test_features = None
+
+    def fit(self, features, labels):
+        self.train_features = features.copy()
+        self.train_labels = np.array(labels, copy=True)
+        return self
+
+    def predict_proba(self, features):
+        self.test_features = features.copy()
+        return np.tile([0.3, 0.7], (len(features), 1))
 
 
 class FrozenDatasetTests(unittest.TestCase):
@@ -221,6 +278,198 @@ class FrozenSplitTests(unittest.TestCase):
             load_frozen_split(self.dataset, "unknown", seed=0)
         with self.assertRaisesRegex(ValueError, "seed must be one of"):
             load_frozen_split(self.dataset, "all", seed=3)
+
+
+class FrozenModelEvaluationTests(unittest.TestCase):
+    def setUp(self):
+        self.dataset = validate_frozen_dataset(make_experiment_dataset(20))
+        self.features = select_predictor_features(self.dataset)
+        self.labels = self.dataset["forgotten_lr1e5"].to_numpy()
+        self.split = FrozenSplitIndices(
+            train=np.arange(12),
+            validation=np.arange(12, 16),
+            test=np.arange(16, 20),
+        )
+
+    def test_fit_helper_uses_only_frozen_train_and_test_rows(self):
+        model = SpyProbabilityModel()
+
+        scores = fit_predict_test_scores(
+            model, self.features, self.labels, self.split
+        )
+
+        pd.testing.assert_frame_equal(
+            model.train_features, self.features.iloc[self.split.train]
+        )
+        np.testing.assert_array_equal(model.train_labels, self.labels[self.split.train])
+        pd.testing.assert_frame_equal(
+            model.test_features, self.features.iloc[self.split.test]
+        )
+        self.assertEqual(len(scores), len(self.split.test))
+        self.assertTrue(np.all((scores >= 0) & (scores <= 1)))
+
+    def test_logistic_regression_pipeline_scales_train_rows_only(self):
+        features = self.features.copy()
+        features.loc[self.split.test, "subject_pop_log"] = 10000.0
+        model = make_logistic_pipeline(seed=13)
+
+        scores = fit_predict_test_scores(model, features, self.labels, self.split)
+
+        scaler = model.named_steps["scaler"]
+        np.testing.assert_allclose(
+            scaler.mean_, features.iloc[self.split.train].mean(axis=0).to_numpy()
+        )
+        self.assertEqual(len(scores), len(self.split.test))
+        self.assertTrue(np.isfinite(scores).all())
+        self.assertTrue(np.all((scores >= 0) & (scores <= 1)))
+
+    def test_lightgbm_uses_fixed_settings_and_returns_test_probabilities(self):
+        model = make_lightgbm_classifier(seed=13)
+        params = model.get_params()
+        self.assertEqual(
+            {key: params[key] for key in (
+                "n_estimators", "learning_rate", "max_depth", "num_leaves",
+                "class_weight", "random_state", "n_jobs", "verbosity",
+            )},
+            {
+                "n_estimators": 100,
+                "learning_rate": 0.05,
+                "max_depth": 4,
+                "num_leaves": 15,
+                "class_weight": "balanced",
+                "random_state": 13,
+                "n_jobs": 1,
+                "verbosity": -1,
+            },
+        )
+
+        scores = fit_predict_test_scores(
+            model, self.features, self.labels, self.split
+        )
+
+        self.assertEqual(len(scores), len(self.split.test))
+        self.assertTrue(np.isfinite(scores).all())
+        self.assertTrue(np.all((scores >= 0) & (scores <= 1)))
+
+    def test_popularity_selector_returns_exactly_two_features(self):
+        features = select_popularity_features(self.dataset)
+
+        self.assertEqual(list(features.columns), ["subject_pop_log", "object_pop_log"])
+
+    def test_prevalence_baseline_uses_train_labels_only(self):
+        train_labels = self.labels[self.split.train]
+        first_scores = prevalence_test_scores(train_labels, len(self.split.test))
+        changed_test_labels = self.labels.copy()
+        changed_test_labels[self.split.test] = 1 - changed_test_labels[self.split.test]
+        second_scores = prevalence_test_scores(
+            changed_test_labels[self.split.train], len(self.split.test)
+        )
+
+        np.testing.assert_array_equal(first_scores, second_scores)
+        np.testing.assert_array_equal(
+            first_scores, np.full(len(self.split.test), train_labels.mean())
+        )
+
+    def test_metrics_receive_test_labels_only_and_have_requested_keys(self):
+        test_scores = np.array([0.9, 0.7, 0.2, 0.1])
+        with patch("src.real_label_classifiers.evaluate_predictions") as evaluate:
+            evaluate.return_value = {
+                "auprc": 1.0,
+                "f1": 1.0,
+                "recall_at_k": {1: 0.5, 5: 1.0, 10: 1.0},
+            }
+            metrics = evaluate_test_scores(self.labels, self.split, test_scores)
+
+        np.testing.assert_array_equal(
+            evaluate.call_args.args[0], self.labels[self.split.test]
+        )
+        np.testing.assert_array_equal(evaluate.call_args.args[1], test_scores)
+        self.assertEqual(
+            set(metrics), {"auprc", "f1", "recall_at_1", "recall_at_5", "recall_at_10"}
+        )
+        self.assertEqual(evaluate.call_args.kwargs["threshold"], 0.5)
+        self.assertEqual(evaluate.call_args.kwargs["k_values"], (1, 5, 10))
+
+    def test_aggregate_reports_mean_and_sample_standard_deviation(self):
+        rows = []
+        for seed, auprc in enumerate((0.2, 0.4, 0.6)):
+            rows.append(
+                {
+                    "population": "known",
+                    "seed": seed,
+                    "model": "logistic_regression_full",
+                    "n_train": 10,
+                    "n_val": 2,
+                    "n_test": 3,
+                    "train_prevalence": 0.4,
+                    "auprc": auprc,
+                    "f1": auprc,
+                    "recall_at_1": auprc,
+                    "recall_at_5": auprc,
+                    "recall_at_10": auprc,
+                }
+            )
+
+        summary = aggregate_seed_results(pd.DataFrame(rows))
+
+        self.assertEqual(tuple(summary.columns), SUMMARY_COLUMNS)
+        self.assertAlmostEqual(summary.loc[0, "auprc_mean"], 0.4)
+        self.assertAlmostEqual(summary.loc[0, "auprc_std"], 0.2)
+
+    def test_run_experiments_honors_frozen_population_and_seed_assignments(self):
+        dataset = validate_frozen_dataset(make_experiment_dataset(60))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            split_root = Path(temp_dir)
+            expected_counts = {}
+            for population in ("known", "all"):
+                selected = select_population(dataset, population)
+                population_dir = split_root / population
+                population_dir.mkdir()
+                for seed in (0, 1):
+                    train_count = int(len(selected) * (0.6 if seed == 0 else 0.5))
+                    validation_count = int(len(selected) * 0.2)
+                    memberships = (
+                        ["train"] * train_count
+                        + ["val"] * validation_count
+                        + ["test"] * (len(selected) - train_count - validation_count)
+                    )
+                    assignments = pd.DataFrame(
+                        {"id": selected["id"], "split": memberships}
+                    ).iloc[::-1]
+                    assignments.to_csv(population_dir / f"seed{seed}.csv", index=False)
+                    expected_counts[(population, seed)] = (
+                        train_count,
+                        validation_count,
+                        len(selected) - train_count - validation_count,
+                    )
+
+            captured = []
+
+            def fake_fit_predict(model, features, labels, split):
+                captured.append((len(labels), split.train.copy(), split.test.copy()))
+                return np.full(len(split.test), 0.6)
+
+            with patch(
+                "src.real_label_classifiers.fit_predict_test_scores",
+                side_effect=fake_fit_predict,
+            ):
+                per_seed, summary = run_experiments(
+                    dataset,
+                    splits_dir=split_root,
+                    populations=("all", "known"),
+                    seeds=(0, 1),
+                )
+
+        self.assertEqual(tuple(per_seed.columns), PER_SEED_COLUMNS)
+        self.assertEqual(per_seed["population"].drop_duplicates().tolist(), ["known", "all"])
+        self.assertEqual(len(per_seed), 2 * 2 * 4)
+        self.assertEqual(len(summary), 2 * 4)
+        for _, row in per_seed.drop_duplicates(["population", "seed"]).iterrows():
+            self.assertEqual(
+                (row["n_train"], row["n_val"], row["n_test"]),
+                expected_counts[(row["population"], row["seed"])],
+            )
+        self.assertEqual(len(captured), 2 * 2 * 3)
 
 
 if __name__ == "__main__":
