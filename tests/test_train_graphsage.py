@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -11,7 +12,12 @@ from torch_geometric.data import Data
 from src.train_graphsage import (
     GraphLabelMasks,
     GraphSAGEClassifier,
+    GraphSAGETrainingResult,
     GraphSAGETrainingConfig,
+    LOSS_CURVE_COLUMNS,
+    METRICS_BY_SEED_COLUMNS,
+    SCORES_COLUMNS,
+    SUMMARY_COLUMNS as GRAPHSAGE_SUMMARY_COLUMNS,
     TARGET_COLUMN,
     build_graph_label_masks,
     compute_train_pos_weight,
@@ -20,9 +26,12 @@ from src.train_graphsage import (
     load_known_labels,
     masked_bce_loss,
     predict_graph_probabilities,
+    run_graphsage_experiments,
     seed_everything,
+    summarize_graphsage_metrics,
     train_graphsage,
     validate_split_assignments,
+    write_graphsage_outputs,
 )
 
 
@@ -77,6 +86,22 @@ def make_training_graph_and_masks(labels=None) -> tuple[Data, GraphLabelMasks]:
     return Data(x=x, edge_index=edge_index), masks
 
 
+def make_partially_labeled_graph_and_masks() -> tuple[Data, GraphLabelMasks]:
+    graph, base_masks = make_training_graph_and_masks()
+    graph.x = torch.cat([graph.x, torch.zeros((1, 18), dtype=torch.float32)], dim=0)
+    masks = GraphLabelMasks(
+        labels=torch.cat([base_masks.labels, torch.tensor([0.0])]),
+        labeled_mask=torch.cat([base_masks.labeled_mask, torch.tensor([False])]),
+        train_mask=torch.cat([base_masks.train_mask, torch.tensor([False])]),
+        validation_mask=torch.cat(
+            [base_masks.validation_mask, torch.tensor([False])]
+        ),
+        test_mask=torch.cat([base_masks.test_mask, torch.tensor([False])]),
+        node_ids=tuple(range(11)),
+    )
+    return graph, masks
+
+
 class ConstantLogitModel(nn.Module):
     def __init__(self, initial_logit=-0.2):
         super().__init__()
@@ -98,6 +123,21 @@ class RecordingEncoder(nn.Module):
     def forward(self, x, edge_index):
         self.seen = (x.shape, edge_index.shape)
         return x[:, :16]
+
+
+def make_stub_training_result(seed, model, masks):
+    history = [
+        {"epoch": 1, "train_loss": 0.7, "validation_loss": 0.6, "is_best": True},
+        {"epoch": 2, "train_loss": 0.6, "validation_loss": 0.61, "is_best": False},
+    ]
+    return GraphSAGETrainingResult(
+        model=model,
+        best_epoch=seed + 1,
+        best_validation_loss=0.6,
+        stopped_early=(seed == 1),
+        loss_history=history,
+        pos_weight=compute_train_pos_weight(masks).item(),
+    )
 
 
 class KnownLabelLoaderTests(unittest.TestCase):
@@ -468,6 +508,161 @@ class GraphSAGETrainingTests(unittest.TestCase):
         self.assertEqual(len(test_probabilities), int(self.masks.test_mask.sum()))
         self.assertTrue(torch.isfinite(all_probabilities).all())
         self.assertTrue(torch.all((all_probabilities >= 0) & (all_probabilities <= 1)))
+
+
+class GraphSAGEExperimentOutputTests(unittest.TestCase):
+    def setUp(self):
+        self.graph, self.base_masks = make_partially_labeled_graph_and_masks()
+        self.id_to_index = {fact_id: index for index, fact_id in enumerate(range(11))}
+        self.masks_by_seed = {
+            seed: self.base_masks for seed in (0, 1, 2)
+        }
+
+    def _run_stub_experiment(self):
+        calls = []
+
+        def fake_training(graph, masks, seed, config):
+            calls.append((seed, graph, masks, config))
+            return make_stub_training_result(seed, ConstantLogitModel(), masks)
+
+        outputs = run_graphsage_experiments(
+            graph=self.graph,
+            id_to_index=self.id_to_index,
+            masks_by_seed=self.masks_by_seed,
+            training_function=fake_training,
+        )
+        return outputs, calls
+
+    def test_orchestrates_all_seeds_with_expected_schemas_and_model_labels(self):
+        (metrics, summary, scores, loss_curves), calls = self._run_stub_experiment()
+
+        self.assertEqual(list(metrics.columns), list(METRICS_BY_SEED_COLUMNS))
+        self.assertEqual(list(summary.columns), list(GRAPHSAGE_SUMMARY_COLUMNS))
+        self.assertEqual(list(scores.columns), list(SCORES_COLUMNS))
+        self.assertEqual(list(loss_curves.columns), list(LOSS_CURVE_COLUMNS))
+        self.assertEqual(metrics.population.tolist(), ["known"] * 3)
+        self.assertEqual(metrics.model.tolist(), ["graphsage"] * 3)
+        self.assertEqual(metrics.seed.tolist(), [0, 1, 2])
+        self.assertEqual(len(summary), 1)
+        self.assertEqual(summary.loc[0, "n_seeds"], 3)
+        self.assertEqual([call[0] for call in calls], [0, 1, 2])
+        self.assertTrue(all(call[1] is self.graph for call in calls))
+        self.assertTrue(all(call[2] is self.base_masks for call in calls))
+
+    def test_scores_contain_test_ids_only_labels_and_valid_probabilities(self):
+        (_, _, scores, _), _ = self._run_stub_experiment()
+        expected_test_ids = [
+            self.base_masks.node_ids[index]
+            for index in torch.where(self.base_masks.test_mask)[0].tolist()
+        ]
+
+        self.assertEqual(len(scores), 3 * len(expected_test_ids))
+        self.assertEqual(scores.groupby("seed").size().to_dict(), {0: 2, 1: 2, 2: 2})
+        self.assertEqual(set(scores.split), {"test"})
+        self.assertEqual(set(scores.id), set(expected_test_ids))
+        self.assertFalse(set(scores.id) & set(self.base_masks.node_ids[:8]))
+        self.assertNotIn(self.base_masks.node_ids[10], set(scores.id))
+        self.assertTrue(scores.forgetting_risk.between(0, 1).all())
+        self.assertTrue(np.isfinite(scores.forgetting_risk).all())
+        for row in scores.itertuples(index=False):
+            node_index = self.base_masks.node_ids.index(row.id)
+            self.assertEqual(row.true_label, int(self.base_masks.labels[node_index]))
+
+    def test_metrics_use_only_test_labels_and_fixed_metric_settings(self):
+        with patch("src.train_graphsage.evaluate_predictions") as evaluate:
+            evaluate.return_value = {
+                "auprc": 0.75,
+                "f1": 0.5,
+                "recall_at_k": {1: 0.5, 5: 1.0, 10: 1.0},
+            }
+            (metrics, _, _, _), _ = self._run_stub_experiment()
+
+        self.assertEqual(evaluate.call_count, 3)
+        for call in evaluate.call_args_list:
+            np.testing.assert_array_equal(
+                call.args[0], self.base_masks.labels[self.base_masks.test_mask].numpy()
+            )
+            self.assertEqual(call.kwargs["threshold"], 0.5)
+            self.assertEqual(call.kwargs["k_values"], (1, 5, 10))
+        self.assertEqual(metrics.auprc.tolist(), [0.75] * 3)
+
+    def test_loss_curve_contains_only_executed_epochs_and_marks_final_stop(self):
+        (_, _, _, curves), _ = self._run_stub_experiment()
+
+        self.assertEqual(len(curves), 3 * 2)
+        self.assertEqual(curves.groupby("seed").epoch.apply(list).to_dict(), {
+            0: [1, 2], 1: [1, 2], 2: [1, 2]
+        })
+        self.assertEqual(curves.groupby("seed").stopped_early.sum().to_dict(), {0: 0, 1: 1, 2: 0})
+        stopped_rows = curves.loc[curves.stopped_early]
+        self.assertEqual(stopped_rows[["seed", "epoch"]].values.tolist(), [[1, 2]])
+        self.assertEqual(curves.groupby("seed").is_best.sum().to_dict(), {0: 1, 1: 1, 2: 1})
+        self.assertTrue(np.isfinite(curves[["train_loss", "validation_loss"]].to_numpy()).all())
+
+    def test_summary_mean_and_sample_standard_deviation(self):
+        metrics = pd.DataFrame(
+            [
+                {
+                    "population": "known",
+                    "seed": seed,
+                    "model": "graphsage",
+                    "n_train": 199,
+                    "n_validation": 43,
+                    "n_test": 43,
+                    "best_epoch": 1,
+                    "best_validation_loss": 0.5,
+                    "stopped_early": False,
+                    "pos_weight": 92 / 107,
+                    "auprc": value,
+                    "f1": value,
+                    "recall_at_1": value,
+                    "recall_at_5": value,
+                    "recall_at_10": value,
+                }
+                for seed, value in enumerate((0.2, 0.4, 0.6))
+            ],
+            columns=METRICS_BY_SEED_COLUMNS,
+        )
+
+        summary = summarize_graphsage_metrics(metrics)
+
+        self.assertAlmostEqual(summary.loc[0, "auprc_mean"], 0.4)
+        self.assertAlmostEqual(summary.loc[0, "auprc_std"], 0.2)
+        self.assertEqual(summary.loc[0, "n_seeds"], 3)
+
+    def test_writer_creates_only_four_approved_artifacts(self):
+        outputs, _ = self._run_stub_experiment()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            paths = write_graphsage_outputs(*outputs, output_dir=Path(temp_dir))
+            created_names = sorted(path.name for path in Path(temp_dir).iterdir())
+
+            self.assertEqual(
+                created_names,
+                sorted(
+                    [
+                        "task8_graphsage_metrics_by_seed.csv",
+                        "task8_graphsage_summary.csv",
+                        "task8_graphsage_scores.csv",
+                        "task8_graphsage_loss_curves.csv",
+                    ]
+                ),
+            )
+            self.assertTrue(all(path.is_file() for path in paths.values()))
+            self.assertEqual(
+                list(pd.read_csv(paths["scores"]).columns), list(SCORES_COLUMNS)
+            )
+
+    def test_output_rows_are_sorted_deterministically(self):
+        _, _, scores, curves = self._run_stub_experiment()[0]
+
+        self.assertEqual(
+            list(zip(scores.seed, scores.id)),
+            sorted(zip(scores.seed, scores.id)),
+        )
+        self.assertEqual(
+            list(zip(curves.seed, curves.epoch)),
+            sorted(zip(curves.seed, curves.epoch)),
+        )
 
 
 if __name__ == "__main__":

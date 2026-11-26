@@ -11,7 +11,13 @@ import pandas as pd
 import torch
 from torch import Tensor, nn
 
-from src.graphsage_model import GraphSAGEModel
+try:
+    from src.evaluation_metrics import evaluate_predictions
+    from src.graphsage_model import DEFAULT_EDGES, DEFAULT_FEATURES, GraphSAGEModel, build_graph_data
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from src.evaluation_metrics import evaluate_predictions
+    from src.graphsage_model import DEFAULT_EDGES, DEFAULT_FEATURES, GraphSAGEModel, build_graph_data
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LABELS_PATH = ROOT / "results" / "frozen" / "real_dataset.csv"
@@ -21,6 +27,47 @@ TARGET_COLUMN = "forgotten_lr1e5"
 SUPPORTED_SEEDS = (0, 1, 2)
 SPLIT_NAMES = ("train", "val", "test")
 EMBEDDING_DIM = 16
+RESULTS_DIR = ROOT / "results"
+METRICS_BY_SEED_OUTPUT = RESULTS_DIR / "task8_graphsage_metrics_by_seed.csv"
+SUMMARY_OUTPUT = RESULTS_DIR / "task8_graphsage_summary.csv"
+SCORES_OUTPUT = RESULTS_DIR / "task8_graphsage_scores.csv"
+LOSS_CURVES_OUTPUT = RESULTS_DIR / "task8_graphsage_loss_curves.csv"
+METRIC_NAMES = ("auprc", "f1", "recall_at_1", "recall_at_5", "recall_at_10")
+METRICS_BY_SEED_COLUMNS = (
+    "population",
+    "seed",
+    "model",
+    "n_train",
+    "n_validation",
+    "n_test",
+    "best_epoch",
+    "best_validation_loss",
+    "stopped_early",
+    "pos_weight",
+    *METRIC_NAMES,
+)
+SUMMARY_COLUMNS = (
+    "population",
+    "model",
+    "n_seeds",
+    *(f"{metric}_{stat}" for metric in METRIC_NAMES for stat in ("mean", "std")),
+)
+SCORES_COLUMNS = (
+    "population",
+    "seed",
+    "id",
+    "split",
+    "true_label",
+    "forgetting_risk",
+)
+LOSS_CURVE_COLUMNS = (
+    "seed",
+    "epoch",
+    "train_loss",
+    "validation_loss",
+    "is_best",
+    "stopped_early",
+)
 
 
 @dataclass(frozen=True)
@@ -517,3 +564,222 @@ def load_graph_label_masks(
     return build_graph_label_masks(
         id_to_index, known_labels, assignments, num_nodes=num_nodes
     )
+
+
+def summarize_graphsage_metrics(metrics_by_seed: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate the three frozen-seed metric rows using sample standard deviation."""
+    missing_columns = set(METRICS_BY_SEED_COLUMNS) - set(metrics_by_seed.columns)
+    if missing_columns:
+        raise ValueError(f"Task 8 metrics are missing columns: {sorted(missing_columns)}")
+    if metrics_by_seed.empty:
+        raise ValueError("Task 8 metrics must not be empty")
+
+    rows = []
+    for (population, model_name), group in metrics_by_seed.groupby(
+        ["population", "model"], sort=False
+    ):
+        row: dict[str, int | float | str] = {
+            "population": population,
+            "model": model_name,
+            "n_seeds": group["seed"].nunique(),
+        }
+        for metric in METRIC_NAMES:
+            row[f"{metric}_mean"] = group[metric].mean()
+            row[f"{metric}_std"] = group[metric].std(ddof=1)
+        rows.append(row)
+
+    summary = pd.DataFrame(rows, columns=SUMMARY_COLUMNS)
+    return summary.sort_values(["population", "model"], kind="stable").reset_index(
+        drop=True
+    )
+
+
+def run_graphsage_experiments(
+    graph=None,
+    id_to_index: dict[object, int] | None = None,
+    masks_by_seed: dict[int, GraphLabelMasks] | None = None,
+    *,
+    features_path: Path = DEFAULT_FEATURES,
+    edges_path: Path = DEFAULT_EDGES,
+    labels_path: Path = DEFAULT_LABELS_PATH,
+    splits_dir: Path = DEFAULT_SPLITS_DIR,
+    seeds: tuple[int, ...] = SUPPORTED_SEEDS,
+    config: GraphSAGETrainingConfig | None = None,
+    training_function=None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Train the real known population for each frozen seed and return four tables."""
+    if tuple(seeds) != SUPPORTED_SEEDS:
+        raise ValueError(f"Task 8 experiment requires exactly seeds {SUPPORTED_SEEDS}")
+    if graph is None:
+        if id_to_index is not None:
+            raise ValueError("id_to_index must only be supplied together with graph")
+        graph_features = pd.read_csv(features_path)
+        graph_edges = pd.read_csv(edges_path)
+        graph, id_to_index = build_graph_data(graph_features, graph_edges)
+    elif id_to_index is None:
+        raise ValueError("id_to_index is required when graph is supplied")
+    if graph.x.shape[0] != len(id_to_index):
+        raise ValueError("graph node count does not match id_to_index")
+    if masks_by_seed is not None and set(masks_by_seed) != set(seeds):
+        raise ValueError(f"masks_by_seed must contain exactly seeds {seeds}")
+
+    train_fn = training_function or train_graphsage
+    metric_records: list[dict[str, int | float | bool | str]] = []
+    score_records: list[dict[str, int | float | str]] = []
+    loss_records: list[dict[str, int | float | bool]] = []
+
+    for seed in seeds:
+        masks = (
+            masks_by_seed[seed]
+            if masks_by_seed is not None
+            else load_graph_label_masks(
+                id_to_index,
+                graph.x.shape[0],
+                seed,
+                labels_path=labels_path,
+                splits_dir=splits_dir,
+            )
+        )
+        masks.validate(graph.x.shape[0])
+        result = train_fn(graph, masks, seed=seed, config=config)
+        test_probabilities = predict_graph_probabilities(
+            result.model, graph, mask=masks.test_mask
+        )
+        test_labels = masks.labels[masks.test_mask].detach().cpu().numpy()
+        test_scores = test_probabilities.detach().cpu().numpy()
+        metric_values = evaluate_predictions(
+            test_labels,
+            test_scores,
+            threshold=0.5,
+            k_values=(1, 5, 10),
+        )
+        metric_records.append(
+            {
+                "population": KNOWN_POPULATION,
+                "seed": seed,
+                "model": "graphsage",
+                "n_train": int(masks.train_mask.sum()),
+                "n_validation": int(masks.validation_mask.sum()),
+                "n_test": int(masks.test_mask.sum()),
+                "best_epoch": result.best_epoch,
+                "best_validation_loss": result.best_validation_loss,
+                "stopped_early": result.stopped_early,
+                "pos_weight": result.pos_weight,
+                "auprc": metric_values["auprc"],
+                "f1": metric_values["f1"],
+                "recall_at_1": metric_values["recall_at_k"][1],
+                "recall_at_5": metric_values["recall_at_k"][5],
+                "recall_at_10": metric_values["recall_at_k"][10],
+            }
+        )
+
+        test_node_indices = torch.where(masks.test_mask.detach().cpu())[0].tolist()
+        if len(test_node_indices) != len(test_scores):
+            raise ValueError("test probability count does not match frozen test IDs")
+        score_records.extend(
+            {
+                "population": KNOWN_POPULATION,
+                "seed": seed,
+                "id": masks.node_ids[node_index],
+                "split": "test",
+                "true_label": int(masks.labels[node_index]),
+                "forgetting_risk": float(probability),
+            }
+            for node_index, probability in zip(test_node_indices, test_scores)
+        )
+
+        if not result.loss_history:
+            raise ValueError(f"seed {seed}: training returned empty loss history")
+        for position, history_row in enumerate(result.loss_history):
+            train_loss = float(history_row["train_loss"])
+            validation_loss = float(history_row["validation_loss"])
+            if not np.isfinite(train_loss) or not np.isfinite(validation_loss):
+                raise ValueError(f"seed {seed}: loss history contains non-finite values")
+            loss_records.append(
+                {
+                    "seed": seed,
+                    "epoch": int(history_row["epoch"]),
+                    "train_loss": train_loss,
+                    "validation_loss": validation_loss,
+                    "is_best": bool(history_row["is_best"]),
+                    "stopped_early": bool(
+                        result.stopped_early and position == len(result.loss_history) - 1
+                    ),
+                }
+            )
+
+    metrics_by_seed = pd.DataFrame(metric_records, columns=METRICS_BY_SEED_COLUMNS)
+    metrics_by_seed = metrics_by_seed.sort_values("seed", kind="stable").reset_index(
+        drop=True
+    )
+    summary = summarize_graphsage_metrics(metrics_by_seed)
+    scores = pd.DataFrame(score_records, columns=SCORES_COLUMNS)
+    scores = scores.sort_values(["seed", "id"], kind="stable").reset_index(drop=True)
+    loss_curves = pd.DataFrame(loss_records, columns=LOSS_CURVE_COLUMNS)
+    loss_curves = loss_curves.sort_values(["seed", "epoch"], kind="stable").reset_index(
+        drop=True
+    )
+    return metrics_by_seed, summary, scores, loss_curves
+
+
+def write_graphsage_outputs(
+    metrics_by_seed: pd.DataFrame,
+    summary: pd.DataFrame,
+    scores: pd.DataFrame,
+    loss_curves: pd.DataFrame,
+    output_dir: Path = RESULTS_DIR,
+) -> dict[str, Path]:
+    """Write exactly the four approved Task 8 result CSV files."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "metrics_by_seed": output_dir / METRICS_BY_SEED_OUTPUT.name,
+        "summary": output_dir / SUMMARY_OUTPUT.name,
+        "scores": output_dir / SCORES_OUTPUT.name,
+        "loss_curves": output_dir / LOSS_CURVES_OUTPUT.name,
+    }
+    metrics_by_seed.to_csv(paths["metrics_by_seed"], index=False)
+    summary.to_csv(paths["summary"], index=False)
+    scores.to_csv(paths["scores"], index=False)
+    loss_curves.to_csv(paths["loss_curves"], index=False)
+    return paths
+
+
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Train GraphSAGE on the frozen known facts.")
+    parser.add_argument(
+        "--run-experiment",
+        action="store_true",
+        help="train all three frozen seeds and write the four Task 8 result tables",
+    )
+    parser.add_argument("--features", type=Path, default=DEFAULT_FEATURES)
+    parser.add_argument("--edges", type=Path, default=DEFAULT_EDGES)
+    parser.add_argument("--labels", type=Path, default=DEFAULT_LABELS_PATH)
+    parser.add_argument("--splits-dir", type=Path, default=DEFAULT_SPLITS_DIR)
+    args = parser.parse_args()
+    if not args.run_experiment:
+        parser.print_help()
+        return
+
+    metrics, summary, scores, loss_curves = run_graphsage_experiments(
+        features_path=args.features,
+        edges_path=args.edges,
+        labels_path=args.labels,
+        splits_dir=args.splits_dir,
+    )
+    paths = write_graphsage_outputs(metrics, summary, scores, loss_curves)
+    for row in metrics.itertuples(index=False):
+        print(
+            f"seed={row.seed} best_epoch={row.best_epoch} "
+            f"AUPRC={row.auprc:.4f} F1={row.f1:.4f} "
+            f"recall@1={row.recall_at_1:.4f} recall@5={row.recall_at_5:.4f} "
+            f"recall@10={row.recall_at_10:.4f}"
+        )
+    for output_path in paths.values():
+        print(f"Saved {output_path}")
+
+
+if __name__ == "__main__":
+    main()
