@@ -1,0 +1,9 @@
+{
+  "seed": 2,
+  "learning_rate": 1e-05,
+  "evaluated_facts": 929,
+  "correct_facts": 697,
+  "forgotten_facts": 232,
+  "retained_facts": 697,
+  "forgetting_rate": 0.24973089343379984
+}
