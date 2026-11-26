@@ -50,6 +50,20 @@ python src/make_real_dataset.py
 - `results/splits/known/seed{0,1,2}.csv`: 70/15/15 split of the 285 non-guessable facts (primary)
 - `results/splits/all/seed{0,1,2}.csv`: same for all 929 facts
 
+### Enriched features
+
+`results/frozen/real_dataset_enriched.csv` has the same 929 rows, order and columns as
+`results/frozen/real_dataset.csv`, plus `question_length`, `question_chars`, `answer_length`,
+`answer_chars`, `entity_type` and one-hot `et_person`, `et_place`, `et_creative_work`, `et_other`.
+`confidence` columns are added only if `data/processed/pre_update_results.csv` has them.
+Rebuild with one command (needs `data/processed/popqa_clean.csv`):
+
+```
+python src/enrich_features.py
+```
+
+Correlations and missing-value counts are in `results/feature_enrichment_stats.md`.
+
 Splits are stratified on `forgotten_lr1e5` and relation; rare relations are merged into "other".
 Load them with `load_real_dataset()` and `load_split(seed, population)` from `src/make_real_dataset.py`.
 

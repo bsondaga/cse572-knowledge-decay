@@ -84,3 +84,23 @@ Undirected edge list of the fact graph. Each fact (`id`) is a node, and each edg
 | `src_id` | int64 | `id` of the lower-id fact. | `1130` |
 | `dst_id` | int64 | `id` of the higher-id fact. | `285168` |
 | `edge_type` | object | `head` (same subject entity) or `tail` (same object entity). A pair that shares both is stored once as `head`. | `tail` |
+
+# Enriched features
+
+`src/enrich_features.py` reads the frozen `results/frozen/real_dataset.csv` and `data/processed/popqa_clean.csv` and writes `results/frozen/real_dataset_enriched.csv` (committed). It has the same 929 rows, ids and order as the frozen table, all existing columns unchanged, plus the columns below. Rebuild it with:
+
+```bash
+python src/enrich_features.py       # also writes results/feature_enrichment_stats.md
+```
+
+| Column | dtype | Description |
+|---|---|---|
+| `question_length` | int64 | Number of words in `question` (from `popqa_clean.csv`). |
+| `question_chars` | int64 | Number of characters in `question`. |
+| `answer_length` | int64 | Number of words in the first entry of `possible_answers`. |
+| `answer_chars` | int64 | Number of characters in the first entry of `possible_answers`. |
+| `entity_type` | object | Relation grouped into `person` (occupation, place of birth, father, mother, religion), `place` (country, capital, capital of), `creative_work` (director, screenwriter, producer, genre, composer, author) or `other` (sport, color; any unknown relation). |
+| `et_person`, `et_place`, `et_creative_work`, `et_other` | int64 | One-hot encoding of `entity_type`; exactly one is 1 per row. |
+| `confidence` (optional) | float64 | Model confidence from `pre_update_results.csv`. Added only if that file has a `confidence` column. It did not when this table was built, so it is not in the committed file. |
+
+Two proposed features are not built: the training-corpus mention count (Task 24 adds a proxy) and the checkpoint step (only meaningful for the checkpoint scenario).
