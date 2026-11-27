@@ -41,10 +41,10 @@ N_KNOWN = 40
 N_GUESSABLE = 8
 
 
-def make_enriched_dataset(seed=0):
-    """Synthetic enriched table: 40 known + 8 guessable rows, IDs not in sorted order."""
+def make_enriched_dataset(seed=0, n_known=N_KNOWN):
+    """Synthetic enriched table: n_known known + 8 guessable rows, IDs not in sorted order."""
     rng = np.random.default_rng(seed)
-    n = N_KNOWN + N_GUESSABLE
+    n = n_known + N_GUESSABLE
     ids = rng.permutation(np.arange(1000, 1000 + n * 7, 7))
     rows = []
     for index, fact_id in enumerate(ids):
@@ -59,8 +59,8 @@ def make_enriched_dataset(seed=0):
             "subject_pop_log": float(rng.normal(3, 1)),
             "object_pop_log": float(rng.normal(4, 1)),
             "degree": int(rng.integers(0, 5)),
-            "guess_count": 0 if index < N_KNOWN else 2,
-            "guessable": 0 if index < N_KNOWN else 1,
+            "guess_count": 0 if index < n_known else 2,
+            "guessable": 0 if index < n_known else 1,
             "pop_bucket": int(index % 4),
             "s_pop_z": float(rng.normal()),
             TARGET_COLUMN: label,
@@ -85,7 +85,9 @@ def write_splits(dataset, directory):
     for seed in (0, 1, 2):
         rng = np.random.default_rng(100 + seed)
         order = rng.permutation(known_ids)
-        names = ["train"] * 28 + ["val"] * 6 + ["test"] * 6
+        n_eval = round(0.15 * len(known_ids))
+        names = (["train"] * (len(known_ids) - 2 * n_eval)
+                 + ["val"] * n_eval + ["test"] * n_eval)
         frame = pd.DataFrame({"id": order, "split": names})
         frame = frame.sample(frac=1.0, random_state=seed)  # file row order != dataset order
         path = Path(directory) / "known"
@@ -855,6 +857,320 @@ class NoOutputFilesTests(SplitDirMixin, unittest.TestCase):
         with patch.object(pd.DataFrame, "to_csv", side_effect=AssertionError("wrote CSV")):
             run_frozen_seed(self.dataset, 0, "enriched", "logistic_regression",
                             splits_dir=self.splits_dir)
+
+
+# --------------------------------------------------------------------------
+# Commit 3: final experiment and outputs
+# --------------------------------------------------------------------------
+
+from src.final_predictors import (  # noqa: E402
+    CONDITIONS,
+    CONFIDENCE_GAP_STATEMENT,
+    CV_FOLD_COLUMNS,
+    FINAL_TABLE_COLUMNS,
+    FINAL_TABLE_ROWS,
+    PAIRED_COLUMNS,
+    T17_CV_SUMMARY_COLUMNS,
+    TASK17_OUTPUT_NAMES,
+    build_summary_markdown,
+    is_clear_improvement,
+    paired_seed_differences,
+    run_cv,
+    run_frozen_conditions,
+    run_task17_experiment,
+    validate_importance_by_seed,
+    write_task17_outputs,
+)
+
+ORCHESTRATION_N_KNOWN = 120
+TASK17_MODEL_TO_TASK5 = {"logistic_regression": "logistic_regression_full",
+                         "lightgbm": "lightgbm_full"}
+
+
+def to_task5_metrics(metrics_by_seed):
+    """Express Task 17 original-feature reruns in the committed Task 5 per-seed format."""
+    original = metrics_by_seed.loc[metrics_by_seed.feature_set == "original"].copy()
+    original["model"] = original["model"].map(TASK17_MODEL_TO_TASK5)
+    original = original.rename(columns={"n_validation": "n_val"})
+    original["train_prevalence"] = 0.5
+    return original.drop(columns=["feature_set", "n_features"])
+
+
+def to_task5_cv_folds(folds):
+    frame = folds.copy()
+    frame["model"] = frame["model"].map(TASK17_MODEL_TO_TASK5)
+    return frame.drop(columns="feature_set")
+
+
+def sentinel_task5_summary():
+    rows = []
+    for model, base in (("logistic_regression_full", 0.61), ("lightgbm_full", 0.62),
+                        ("logistic_regression_popularity_only", 0.63), ("prevalence", 0.64)):
+        row = {"population": "known", "model": model, "n_seeds": 3}
+        for index, metric in enumerate(METRIC_NAMES):
+            row[f"{metric}_mean"] = base + 0.001 * index
+            row[f"{metric}_std"] = 0.01 + 0.001 * index
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def sentinel_task8_summary():
+    row = {"population": "known", "model": "graphsage", "n_seeds": 3}
+    for index, metric in enumerate(METRIC_NAMES):
+        row[f"{metric}_mean"] = 0.71 + 0.001 * index
+        row[f"{metric}_std"] = 0.02
+    return pd.DataFrame([row])
+
+
+def report_context():
+    return {"task13_no_edge": 0.021, "task13_shuffled": -0.001, "task13_neighbor": -0.061,
+            "task14_n_runs": 3, "task14_forget_min": 0.37, "task14_forget_max": 0.55,
+            "task14_s_pop_nonsig": 3, "task14_degree_sig": 1,
+            "task14_degree_rho_min": 0.03, "task14_degree_rho_max": 0.18}
+
+
+class OrchestrationFixture:
+    """Runs the full synthetic Task 17 orchestration once per test class."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.dataset = make_enriched_dataset(seed=5, n_known=ORCHESTRATION_N_KNOWN)
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.splits_dir = Path(cls._tmp.name)
+        write_splits(cls.dataset, cls.splits_dir)
+        _, originals = run_frozen_conditions(cls.dataset, splits_dir=cls.splits_dir)
+        cls.task5_metrics = to_task5_metrics(originals)
+        cls.task5_cv_folds = to_task5_cv_folds(run_cv(cls.dataset, "original"))
+        cls.cv_calls = []
+
+        def counting_cv(dataset, feature_set):
+            cls.cv_calls.append(feature_set)
+            return run_cv(dataset, feature_set)
+
+        cls.seed_calls = []
+
+        def counting_runner(dataset, seed, feature_set, model_name, splits_dir):
+            cls.seed_calls.append((model_name, feature_set, seed))
+            return run_frozen_seed(dataset, seed, feature_set, model_name, splits_dir=splits_dir)
+
+        cls.outputs = run_task17_experiment(
+            cls.dataset, splits_dir=cls.splits_dir, task5_metrics=cls.task5_metrics,
+            task5_summary=sentinel_task5_summary(), task5_cv_folds=cls.task5_cv_folds,
+            task8_summary=sentinel_task8_summary(), n_repeats=2,
+            seed_runner=counting_runner, cv_runner=counting_cv)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def experiment_kwargs(self, **overrides):
+        kwargs = dict(splits_dir=self.splits_dir, task5_metrics=self.task5_metrics,
+                      task5_summary=sentinel_task5_summary(),
+                      task5_cv_folds=self.task5_cv_folds,
+                      task8_summary=sentinel_task8_summary(), n_repeats=2)
+        kwargs.update(overrides)
+        return kwargs
+
+
+class OrchestrationTests(OrchestrationFixture, unittest.TestCase):
+    def test_all_four_conditions_and_seeds(self):
+        self.assertEqual(sorted(self.seed_calls),
+                         sorted((m, f, s) for m, f in CONDITIONS for s in (0, 1, 2)))
+        metrics = self.outputs.metrics_by_seed
+        self.assertEqual(tuple(metrics.columns), METRIC_RECORD_COLUMNS)
+        self.assertEqual(len(metrics), 12)
+        self.assertFalse(metrics.duplicated(["model", "feature_set", "seed"]).any())
+        self.assertEqual(metrics.groupby("feature_set")["n_features"].unique().to_dict(),
+                         {"enriched": [26], "original": [18]})
+        self.assertTrue(np.isfinite(metrics[list(METRIC_NAMES)]).all().all())
+
+    def test_original_reruns_are_checked_against_task5(self):
+        wrong = self.task5_metrics.copy()
+        wrong.loc[wrong.index[0], "auprc"] += 0.01
+        with self.assertRaisesRegex(ValueError, "reproduce Task 5"):
+            run_task17_experiment(self.dataset, **self.experiment_kwargs(task5_metrics=wrong))
+
+    def test_original_cv_is_checked_against_task5(self):
+        wrong = self.task5_cv_folds.copy()
+        wrong.loc[wrong.index[3], "f1"] += 0.01
+        with self.assertRaisesRegex(ValueError, "CV rerun does not reproduce"):
+            run_task17_experiment(self.dataset, **self.experiment_kwargs(task5_cv_folds=wrong))
+
+    def test_cv_runs_original_check_and_enriched_supplement(self):
+        self.assertEqual(self.cv_calls, ["original", "enriched"])
+        cv = self.outputs.cv_summary
+        self.assertEqual(tuple(cv.columns), T17_CV_SUMMARY_COLUMNS)
+        self.assertEqual(list(zip(cv.model, cv.feature_set)), [
+            ("logistic_regression", "original"), ("logistic_regression", "enriched"),
+            ("lightgbm", "original"), ("lightgbm", "enriched")])
+        self.assertEqual(set(cv.n_evaluations), {15})
+        self.assertEqual(list(cv.source), ["task5_committed", "task17_rerun"] * 2)
+        self.assertTrue(cv.loc[cv.feature_set == "original", "paired_delta_auprc_mean"].isna().all())
+        self.assertTrue(cv.loc[cv.feature_set == "enriched", "n_folds_auprc_improved"]
+                        .between(0, 15).all())
+
+    def test_importance_has_all_blocks(self):
+        by_seed = self.outputs.importance_by_seed
+        validate_importance_by_seed(by_seed)
+        combos = set(zip(by_seed.model, by_seed.importance_type, by_seed.level))
+        self.assertEqual(combos, {
+            ("logistic_regression", "lr_coefficient", "feature"),
+            ("logistic_regression", "permutation_auprc", "feature"),
+            ("logistic_regression", "permutation_auprc", "group"),
+            ("lightgbm", "lgbm_gain_normalized", "feature"),
+            ("lightgbm", "permutation_auprc", "feature"),
+            ("lightgbm", "permutation_auprc", "group"),
+        })
+        self.assertEqual(len(by_seed), 3 * 2 * (26 + 26 + 6))
+        self.assertEqual(tuple(self.outputs.importance_summary.columns),
+                         IMPORTANCE_SUMMARY_COLUMNS)
+
+    def test_final_table_rows_and_reused_reference_values(self):
+        table = self.outputs.final_table.set_index("model")
+        self.assertEqual(tuple(self.outputs.final_table.columns), FINAL_TABLE_COLUMNS)
+        self.assertEqual(tuple(table.index), FINAL_TABLE_ROWS)
+        self.assertAlmostEqual(table.loc["prevalence_baseline", "auprc_mean"], 0.64)
+        self.assertAlmostEqual(table.loc["logistic_regression_original", "auprc_mean"], 0.61)
+        self.assertAlmostEqual(table.loc["lightgbm_original", "f1_mean"], 0.621)
+        self.assertAlmostEqual(table.loc["graphsage", "auprc_mean"], 0.71)
+        self.assertEqual(table.loc["graphsage", "source"], "task8_committed")
+        self.assertEqual(list(table.n_features), [0, 18, 26, 18, 26, 18])
+        reference = ["prevalence_baseline", "logistic_regression_original",
+                     "lightgbm_original", "graphsage"]
+        paired_fields = ["paired_delta_auprc_mean", "paired_delta_auprc_std",
+                         "n_seeds_auprc_improved", "cv_paired_delta_auprc_mean",
+                         "clear_improvement"]
+        self.assertTrue(table.loc[reference, paired_fields].isna().all().all())
+        enriched = table.loc[["logistic_regression_enriched", "lightgbm_enriched"]]
+        self.assertTrue(enriched[paired_fields].notna().all().all())
+
+    def test_enriched_rows_aggregate_rerun_metrics(self):
+        metrics = self.outputs.metrics_by_seed
+        rows = metrics.loc[(metrics.model == "lightgbm") & (metrics.feature_set == "enriched")]
+        table = self.outputs.final_table.set_index("model")
+        self.assertAlmostEqual(table.loc["lightgbm_enriched", "auprc_mean"], rows.auprc.mean())
+        self.assertAlmostEqual(table.loc["lightgbm_enriched", "auprc_std"], rows.auprc.std(ddof=1))
+        paired = self.outputs.paired
+        delta = paired.loc[(paired.model == "lightgbm") & (paired.metric == "auprc")].iloc[0]
+        self.assertAlmostEqual(table.loc["lightgbm_enriched", "paired_delta_auprc_mean"],
+                               delta.mean_difference)
+
+    def test_markdown_contains_values_and_confidence_gap(self):
+        text = build_summary_markdown(self.outputs, report_context())
+        self.assertIn(CONFIDENCE_GAP_STATEMENT, text)
+        self.assertIn("## Final predictor table", text)
+        self.assertIn("GraphSAGE (Task 8)", text)
+        self.assertIn("0.710 ± 0.020", text)
+        self.assertIn("+0.021", text)
+        self.assertIn("-0.061", text)
+        self.assertIn("No statistical-significance claim", text)
+        self.assertIn("answer length", text.lower())
+        for model_name, clear in self.outputs.clear_improvement.items():
+            if not clear:
+                self.assertIn("no clear improvement", text)
+
+    def test_writer_creates_exactly_seven_artifacts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = write_task17_outputs(self.outputs, report_context(), Path(directory))
+            names = sorted(p.name for p in Path(directory).iterdir())
+            self.assertEqual(names, sorted(TASK17_OUTPUT_NAMES.values()))
+            self.assertEqual(len(names), 7)
+            png = paths["figure"].read_bytes()
+            self.assertEqual(png[:8], b"\x89PNG\r\n\x1a\n")
+            self.assertGreater(len(png), 1000)
+            for key in ("metrics_by_seed", "cv_summary", "importance_by_seed",
+                        "importance_summary", "final_table"):
+                self.assertGreater(len(pd.read_csv(paths[key])), 0)
+            self.assertIn(CONFIDENCE_GAP_STATEMENT,
+                          paths["summary_markdown"].read_text(encoding="utf-8"))
+
+
+class PairedDifferenceTests(unittest.TestCase):
+    def metrics(self):
+        rows = []
+        for model_name in ("logistic_regression", "lightgbm"):
+            for feature_set, base in (("original", 0.5), ("enriched", 0.5)):
+                for seed in (2, 0, 1):  # deliberately out of order
+                    value = base + (0.01 * seed if feature_set == "original"
+                                    else {0: 0.03, 1: -0.02, 2: 0.05}[seed])
+                    rows.append({"population": "known", "model": model_name,
+                                 "feature_set": feature_set, "seed": seed,
+                                 "n_features": 26 if feature_set == "enriched" else 18,
+                                 "n_train": 199, "n_validation": 43, "n_test": 43,
+                                 **{metric: value for metric in METRIC_NAMES}})
+        return pd.DataFrame(rows, columns=METRIC_RECORD_COLUMNS)
+
+    def test_seed_paired_deltas_and_positive_count(self):
+        paired = paired_seed_differences(self.metrics())
+        self.assertEqual(tuple(paired.columns), PAIRED_COLUMNS)
+        self.assertEqual(len(paired), 2 * len(METRIC_NAMES))
+        row = paired.loc[(paired.model == "lightgbm") & (paired.metric == "auprc")].iloc[0]
+        expected = [0.03 - 0.0, -0.02 - 0.01, 0.05 - 0.02]
+        np.testing.assert_allclose(
+            [row.seed0_difference, row.seed1_difference, row.seed2_difference], expected)
+        self.assertAlmostEqual(row.mean_difference, np.mean(expected))
+        self.assertAlmostEqual(row.std_difference, np.std(expected, ddof=1))
+        self.assertEqual(row.n_seeds_improved, 2)
+
+    def test_missing_seed_raises(self):
+        metrics = self.metrics()
+        metrics = metrics.drop(metrics.index[(metrics.feature_set == "enriched")
+                                             & (metrics.seed == 1)][0])
+        with self.assertRaisesRegex(ValueError, "seeds"):
+            paired_seed_differences(metrics)
+
+
+class ClearImprovementRuleTests(unittest.TestCase):
+    def test_rule(self):
+        self.assertTrue(is_clear_improvement([0.03, 0.04, 0.05], 0.01))
+        self.assertFalse(is_clear_improvement([0.03, -0.01, 0.05], 0.01))  # not all seeds
+        self.assertFalse(is_clear_improvement([0.001, 0.002, 0.09], 0.01))  # mean <= SD
+        self.assertFalse(is_clear_improvement([0.03, 0.04, 0.05], -0.002))  # CV disagrees
+        self.assertFalse(is_clear_improvement([0.03, 0.04, 0.05], np.nan))
+        self.assertFalse(is_clear_improvement([0.0, 0.0, 0.0], 0.01))
+        with self.assertRaises(ValueError):
+            is_clear_improvement([0.1, 0.2], 0.1)
+
+
+class CVDesignTests(unittest.TestCase):
+    def test_five_folds_by_three_seeds_using_task5_folds(self):
+        dataset = make_enriched_dataset(seed=7, n_known=ORCHESTRATION_N_KNOWN)
+        with patch("src.real_label_classifiers.make_cv_folds",
+                   wraps=__import__("src.real_label_classifiers",
+                                    fromlist=["make_cv_folds"]).make_cv_folds) as spy:
+            folds = run_cv(dataset, "enriched")
+        self.assertEqual([call.kwargs["seed"] for call in spy.call_args_list], [0, 1, 2])
+        self.assertTrue(all(call.kwargs["n_splits"] == 5 for call in spy.call_args_list))
+        self.assertEqual(tuple(folds.columns), CV_FOLD_COLUMNS)
+        self.assertEqual(len(folds), 2 * 3 * 5)
+        counts = folds.groupby(["model", "seed"])["fold"].apply(sorted)
+        self.assertTrue(all(value == [0, 1, 2, 3, 4] for value in counts))
+        self.assertEqual(set(folds.feature_set), {"enriched"})
+        per_seed = folds.groupby(["model", "seed"])["n_validation"].sum()
+        self.assertTrue((per_seed == ORCHESTRATION_N_KNOWN).all())
+
+
+class ImportanceValidationTests(OrchestrationFixture, unittest.TestCase):
+    def test_missing_seed_or_bad_gain_raises(self):
+        by_seed = self.outputs.importance_by_seed
+        with self.assertRaisesRegex(ValueError, "seed"):
+            validate_importance_by_seed(by_seed.loc[by_seed.seed != 2].reset_index(drop=True))
+        broken = by_seed.copy()
+        gain_rows = broken.index[broken.importance_type == "lgbm_gain_normalized"]
+        broken.loc[gain_rows[0], "importance"] += 0.5
+        with self.assertRaisesRegex(ValueError, "sum to 1"):
+            validate_importance_by_seed(broken)
+
+
+class ReportContextTests(unittest.TestCase):
+    def test_committed_task13_task14_context_loads(self):
+        if not (fp.TASK13_PAIRED_PATH.exists() and fp.TASK14_RUNS_PATH.exists()):
+            self.skipTest("committed Task 13/14 results not present")
+        context = fp.load_report_context()
+        self.assertAlmostEqual(context["task13_no_edge"], 0.0213, places=3)
+        self.assertAlmostEqual(context["task13_shuffled"], -0.0006, places=3)
+        self.assertAlmostEqual(context["task13_neighbor"], -0.0611, places=3)
+        self.assertEqual(context["task14_n_runs"], 3)
 
 
 if __name__ == "__main__":
