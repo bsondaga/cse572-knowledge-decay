@@ -102,17 +102,26 @@ def evaluate_facts(
     model_name: str,
     batch_size: int,
     max_new_tokens: int,
+    model_revision: str | None = None,
 ) -> list[dict[str, Any]]:
     """Generate an answer for each fact and record its baseline exact match."""
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
+    revision_kwargs = {"revision": model_revision} if model_revision else {}
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name, padding_side="left", **revision_kwargs
+    )
     if tokenizer.eos_token_id is None:
         raise ValueError("Pythia tokenizer must define an EOS token for padding.")
     tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(model_name).float().to(device).eval()
+    model = (
+        AutoModelForCausalLM.from_pretrained(model_name, **revision_kwargs)
+        .float()
+        .to(device)
+        .eval()
+    )
 
     results = []
     for start in range(0, len(facts), batch_size):
@@ -227,6 +236,10 @@ def main() -> None:
         help="name the exact-match column for the evaluated model checkpoint",
     )
     parser.add_argument("--model-name", default=MODEL_NAME)
+    parser.add_argument(
+        "--model-revision",
+        help="optional Hugging Face model revision, such as a Pythia training step",
+    )
     parser.add_argument("--batch-size", type=int, default=20)
     parser.add_argument("--max-new-tokens", type=int, default=16)
     args = parser.parse_args()
@@ -241,6 +254,7 @@ def main() -> None:
         args.model_name,
         args.batch_size,
         args.max_new_tokens,
+        args.model_revision,
     )
     save_results(
         results, args.model_name, args.output, args.metrics, args.match_column
