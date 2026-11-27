@@ -86,13 +86,16 @@ def build_forgetting_labels(
     pre_results: dict[str, dict[str, Any]],
     post_results: dict[str, dict[str, Any]],
     seed: int = 0,
+    *,
+    balance: bool = True,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Label baseline-known facts and mark a deterministic balanced subset.
+    """Label baseline-known facts and optionally mark a balanced subset.
 
     A fact is eligible only when it was answered correctly before the update;
     otherwise the post-update outcome cannot establish whether it was forgotten.
-    All eligible facts remain in the output, while ``balanced_subset`` marks an
-    equal-sized forgotten/retained sample suitable for binary modeling.
+    All eligible facts remain in the output. When ``balance`` is true,
+    ``balanced_subset`` marks an equal-sized forgotten/retained sample suitable
+    for binary modeling.
     """
     if not pre_results or not post_results:
         raise ValueError("Pre-update and post-update results must both be non-empty.")
@@ -131,18 +134,22 @@ def build_forgetting_labels(
         )
 
     counts = Counter(row["label"] for row in labeled)
-    if not counts["forgotten"] or not counts["retained"]:
-        raise ValueError(
-            "A balanced forgetting dataset requires at least one forgotten and one "
-            f"retained fact among baseline-correct facts; found {dict(counts)}."
-        )
+    if not labeled:
+        raise ValueError("No baseline-correct facts are available to label.")
 
-    subset_size = min(counts["forgotten"], counts["retained"])
-    rng = random.Random(seed)
+    subset_size = 0
     selected_ids: set[str] = set()
-    for label in ("forgotten", "retained"):
-        ids = [row["id"] for row in labeled if row["label"] == label]
-        selected_ids.update(rng.sample(ids, subset_size))
+    if balance:
+        if not counts["forgotten"] or not counts["retained"]:
+            raise ValueError(
+                "A balanced forgetting dataset requires at least one forgotten and one "
+                f"retained fact among baseline-correct facts; found {dict(counts)}."
+            )
+        subset_size = min(counts["forgotten"], counts["retained"])
+        rng = random.Random(seed)
+        for label in ("forgotten", "retained"):
+            ids = [row["id"] for row in labeled if row["label"] == label]
+            selected_ids.update(rng.sample(ids, subset_size))
     for row in labeled:
         row["balanced_subset"] = row["id"] in selected_ids
 
