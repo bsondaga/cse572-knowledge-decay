@@ -1,0 +1,16 @@
+population,comparison,candidate_condition,reference_condition,metric,seed0_difference,seed1_difference,seed2_difference,mean_difference,std_difference
+known,no_edge_minus_real_graph,no_edge,real_graph,auprc,-0.015645368778080315,0.06630950005296121,0.013239700259136455,0.021301277178005784,0.04156791909745351
+known,no_edge_minus_real_graph,no_edge,real_graph,f1,-0.0444444444444444,-0.08493427704752277,0.09553739786297921,-0.01128044120966265,0.09469632883152303
+known,no_edge_minus_real_graph,no_edge,real_graph,recall_at_1,0.0,0.045454545454545456,0.0,0.015151515151515152,0.026243194054073903
+known,no_edge_minus_real_graph,no_edge,real_graph,recall_at_5,0.0,0.04545454545454544,0.043478260869565216,0.029644268774703553,0.02569169960474308
+known,no_edge_minus_real_graph,no_edge,real_graph,recall_at_10,0.0,0.04545454545454547,0.0,0.015151515151515157,0.026243194054073906
+known,shuffled_edges_minus_real_graph,shuffled_edges,real_graph,auprc,0.033818405844867616,0.028455125209626453,-0.06409593559856075,-0.0006074681813555601,0.05504798194332134
+known,shuffled_edges_minus_real_graph,shuffled_edges,real_graph,f1,-0.01642512077294689,0.0,0.0013513513513513375,-0.005024589807198517,0.00989624258718633
+known,shuffled_edges_minus_real_graph,shuffled_edges,real_graph,recall_at_1,0.0,0.045454545454545456,0.0,0.015151515151515152,0.026243194054073903
+known,shuffled_edges_minus_real_graph,shuffled_edges,real_graph,recall_at_5,0.043478260869565216,0.0,0.0,0.014492753623188406,0.025102185616940248
+known,shuffled_edges_minus_real_graph,shuffled_edges,real_graph,recall_at_10,0.04347826086956519,-0.04545454545454547,-0.08695652173913043,-0.02964426877470357,0.06663919090943621
+known,neighbor_lightgbm_minus_task5_lightgbm_full,neighbor_lightgbm,task5_lightgbm_full,auprc,-0.08695257468228401,-0.11443218942836197,0.018213973564062846,-0.06105693018219438,0.07001206640436704
+known,neighbor_lightgbm_minus_task5_lightgbm_full,neighbor_lightgbm,task5_lightgbm_full,f1,-0.026360544217687076,0.02358276643990931,0.005555555555555536,0.0009259259259259226,0.025291474309358745
+known,neighbor_lightgbm_minus_task5_lightgbm_full,neighbor_lightgbm,task5_lightgbm_full,recall_at_1,0.0,-0.045454545454545456,0.0,-0.015151515151515152,0.026243194054073903
+known,neighbor_lightgbm_minus_task5_lightgbm_full,neighbor_lightgbm,task5_lightgbm_full,recall_at_5,-0.043478260869565216,-0.09090909090909091,0.0,-0.04479578392621871,0.045468864102074825
+known,neighbor_lightgbm_minus_task5_lightgbm_full,neighbor_lightgbm,task5_lightgbm_full,recall_at_10,-0.08695652173913043,0.0,0.043478260869565244,-0.014492753623188396,0.06641414050660638

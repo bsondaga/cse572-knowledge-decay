@@ -5,26 +5,43 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+from torch import nn
 from torch_geometric.data import Data
 
 from src.graph_ablation import (
     ABLATION_METRIC_COLUMNS,
+    EdgeShuffleMetadata,
+    NeighborLightGBMResult,
     NEIGHBOR_FEATURE_COLUMNS,
     PAIRED_DIFFERENCE_COLUMNS,
     PAIRED_SUMMARY_COLUMNS,
+    ShuffledGraphResult,
+    TASK13_METRICS_COLUMNS,
+    TASK13_PAIRED_COLUMNS,
+    TASK13_SCORE_COLUMNS,
+    TASK13_CONDITIONS,
+    TASK8_SCORE_INPUT_COLUMNS,
     build_neighbor_features,
     build_neighbor_predictor_table,
     evaluate_neighbor_lightgbm_seed,
     evaluate_risk_scores,
     load_task5_lightgbm_baseline,
     load_task8_baseline,
+    load_task8_test_scores_from_frame,
     make_no_edge_graph,
     make_shuffled_edge_graph,
     paired_metric_differences,
+    run_task13_experiment,
     summarize_condition_metrics,
+    write_task13_outputs,
 )
 from src.real_label_classifiers import METRIC_NAMES, PREDICTOR_COLUMNS
-from src.train_graphsage import GraphSAGEClassifier
+from src.train_graphsage import (
+    GraphLabelMasks,
+    GraphSAGEClassifier,
+    GraphSAGETrainingResult,
+    build_graph_label_masks,
+)
 
 
 def make_graph_and_edges():
@@ -112,6 +129,122 @@ def make_metric_rows():
                 }
             )
     return pd.DataFrame(rows, columns=ABLATION_METRIC_COLUMNS)
+
+
+def make_task13_fixtures():
+    graph, stored_edges, id_to_index = make_graph_and_edges()
+    ids = list(id_to_index)
+    dataset_rows = []
+    relation_columns = [
+        column for column in PREDICTOR_COLUMNS if column.startswith("rel_")
+    ]
+    labels = [1, 0, 1, 0, 1, 0, 1, 0]
+    for index, fact_id in enumerate(ids):
+        row = {
+            "id": fact_id,
+            "relation": "author" if index % 2 else "country",
+            "subject_pop_log": float(index),
+            "object_pop_log": float(index % 3),
+            "guessable": 0,
+            "forgotten_lr1e5": labels[index],
+            "forgotten_default": 1 - labels[index],
+        }
+        row.update(
+            {
+                column: int(column == relation_columns[index % len(relation_columns)])
+                for column in relation_columns
+            }
+        )
+        dataset_rows.append(row)
+    real_dataset = pd.DataFrame(dataset_rows)
+
+    split_indices = {
+        0: ([0, 1, 2, 3], [4, 5], [6, 7]),
+        1: ([2, 3, 4, 5], [6, 7], [0, 1]),
+        2: ([4, 5, 6, 7], [0, 1], [2, 3]),
+    }
+    masks_by_seed = {}
+    for seed, (train, validation, test) in split_indices.items():
+        names = [None] * len(ids)
+        for index in train:
+            names[index] = "train"
+        for index in validation:
+            names[index] = "val"
+        for index in test:
+            names[index] = "test"
+        assignments = pd.DataFrame({"id": ids, "split": names})
+        masks_by_seed[seed] = build_graph_label_masks(
+            id_to_index,
+            real_dataset[["id", "forgotten_lr1e5"]],
+            assignments,
+            num_nodes=len(ids),
+        )
+
+    task8_metrics = pd.DataFrame(
+        [
+            {
+                "population": "known",
+                "condition": "real_graph",
+                "seed": seed,
+                **{metric: 0.5 for metric in METRIC_NAMES},
+            }
+            for seed in range(3)
+        ]
+    )
+    task5_metrics = pd.DataFrame(
+        [
+            {
+                "population": "known",
+                "condition": "task5_lightgbm_full",
+                "seed": seed,
+                **{metric: 0.4 for metric in METRIC_NAMES},
+            }
+            for seed in range(3)
+        ]
+    )
+    task8_scores = pd.DataFrame(
+        [
+            {
+                "population": "known",
+                "seed": seed,
+                "id": masks.node_ids[index],
+                "split": "test",
+                "true_label": int(masks.labels[index]),
+                "forgetting_risk": 0.5,
+            }
+            for seed, masks in masks_by_seed.items()
+            for index in torch.where(masks.test_mask)[0].tolist()
+        ],
+        columns=TASK8_SCORE_INPUT_COLUMNS,
+    )
+    graph_features = pd.DataFrame(
+        {
+            "id": ids,
+            "s_pop_log": np.arange(len(ids), dtype=float),
+            "o_pop_log": np.arange(len(ids), dtype=float) / 2,
+        }
+    )
+    neighbor_features = build_neighbor_features(graph_features, stored_edges)
+    return (
+        graph,
+        stored_edges,
+        id_to_index,
+        real_dataset,
+        masks_by_seed,
+        task8_metrics,
+        task8_scores,
+        task5_metrics,
+        neighbor_features,
+    )
+
+
+class StubLogitModel(nn.Module):
+    def __init__(self, value):
+        super().__init__()
+        self.value = nn.Parameter(torch.tensor(float(value)))
+
+    def forward(self, x, edge_index):
+        return self.value.expand(x.shape[0])
 
 
 class NoEdgeGraphTests(unittest.TestCase):
@@ -428,6 +561,228 @@ class MetricAndPairingTests(unittest.TestCase):
         self.assertEqual(task8.seed.tolist(), [0, 1, 2])
         self.assertEqual(task5.seed.tolist(), [0, 1, 2])
         self.assertEqual(len(task5), 3)
+
+
+class Task8ScoreLoaderTests(unittest.TestCase):
+    def test_loads_real_six_column_task8_schema_and_adds_condition(self):
+        fixtures = make_task13_fixtures()
+        masks_by_seed, task8_scores = fixtures[4], fixtures[6]
+        source = task8_scores.copy()
+        source["forgetting_risk"] = np.linspace(0.1, 0.9, len(source))
+        self.assertEqual(
+            list(source.columns),
+            ["population", "seed", "id", "split", "true_label", "forgetting_risk"],
+        )
+        self.assertNotIn("condition", source.columns)
+
+        loaded = load_task8_test_scores_from_frame(source, masks_by_seed)
+
+        self.assertEqual(list(loaded.columns), list(TASK13_SCORE_COLUMNS))
+        self.assertEqual(loaded.condition.unique().tolist(), ["real_graph"])
+        self.assertEqual(len(loaded), len(source))
+        merged = loaded.merge(
+            source, on=["seed", "id"], suffixes=("_loaded", "_source"), validate="one_to_one"
+        )
+        self.assertEqual(len(merged), len(source))
+        np.testing.assert_allclose(
+            merged.forgetting_risk_loaded, merged.forgetting_risk_source
+        )
+        self.assertTrue((merged.true_label_loaded == merged.true_label_source).all())
+        self.assertEqual(sorted(loaded.seed.unique().tolist()), [0, 1, 2])
+        for seed in (0, 1, 2):
+            masks = masks_by_seed[seed]
+            expected_ids = {
+                masks.node_ids[index] for index in torch.where(masks.test_mask)[0].tolist()
+            }
+            self.assertEqual(set(loaded.loc[loaded.seed == seed, "id"]), expected_ids)
+
+
+class Task13ExperimentTests(unittest.TestCase):
+    def setUp(self):
+        self.fixtures = make_task13_fixtures()
+
+    def _run_experiment(self):
+        (
+            graph,
+            stored_edges,
+            id_to_index,
+            real_dataset,
+            masks_by_seed,
+            task8_metrics,
+            task8_scores,
+            task5_metrics,
+            neighbor_features,
+        ) = self.fixtures
+        train_calls = []
+        shuffle_calls = []
+        neighbor_calls = []
+
+        def fake_training(graph_arg, masks, seed, config):
+            train_calls.append((seed, graph_arg.edge_index.clone(), masks))
+            logit = -0.2 if graph_arg.edge_index.shape[1] else 0.2
+            history = [
+                {"epoch": 1, "train_loss": 0.7, "validation_loss": 0.6, "is_best": True}
+            ]
+            return GraphSAGETrainingResult(
+                model=StubLogitModel(logit),
+                best_epoch=1,
+                best_validation_loss=0.6,
+                stopped_early=False,
+                loss_history=history,
+                pos_weight=1.0,
+            )
+
+        def fake_shuffle(graph_arg, edge_frame, mapping, seed, target_swaps):
+            shuffle_calls.append((seed, target_swaps))
+            endpoints = edge_frame[["src_id", "dst_id"]].copy()
+            return ShuffledGraphResult(
+                graph=graph_arg.clone(),
+                stored_edges=endpoints,
+                metadata=EdgeShuffleMetadata(
+                    requested_swaps=target_swaps,
+                    successful_swaps=target_swaps,
+                    attempts=target_swaps,
+                    original_edge_count=len(endpoints),
+                    shuffled_edge_count=len(endpoints),
+                ),
+            )
+
+        def fake_neighbor_eval(dataset, graph_neighbor, seed, splits_dir):
+            neighbor_calls.append(seed)
+            masks = masks_by_seed[seed]
+            score_rows = [
+                {
+                    "population": "known",
+                    "condition": "neighbor_lightgbm",
+                    "seed": seed,
+                    "id": masks.node_ids[index],
+                    "split": "test",
+                    "true_label": int(masks.labels[index]),
+                    "forgetting_risk": 0.65,
+                }
+                for index in torch.where(masks.test_mask)[0].tolist()
+            ]
+            return NeighborLightGBMResult(
+                metrics={metric: 0.6 for metric in METRIC_NAMES},
+                scores=pd.DataFrame(score_rows, columns=TASK13_SCORE_COLUMNS),
+                predictors=pd.DataFrame(),
+            )
+
+        outputs = run_task13_experiment(
+            graph=graph,
+            stored_edges=stored_edges,
+            id_to_index=id_to_index,
+            real_dataset=real_dataset,
+            masks_by_seed=masks_by_seed,
+            task8_metrics=task8_metrics,
+            task8_scores=task8_scores,
+            task5_metrics=task5_metrics,
+            graph_neighbor_features=neighbor_features,
+            training_function=fake_training,
+            shuffle_function=fake_shuffle,
+            neighbor_evaluation_function=fake_neighbor_eval,
+        )
+        return outputs, train_calls, shuffle_calls, neighbor_calls
+
+    def test_orchestration_reuses_baselines_and_runs_all_conditions_per_seed(self):
+        (metrics, summary, paired, scores), train_calls, shuffle_calls, neighbor_calls = self._run_experiment()
+
+        self.assertEqual(list(metrics.columns), list(TASK13_METRICS_COLUMNS))
+        self.assertEqual(len(metrics), 15)
+        self.assertEqual(metrics.groupby("condition").size().to_dict(), {
+            "real_graph": 3,
+            "no_edge": 3,
+            "shuffled_edges": 3,
+            "task5_lightgbm_full": 3,
+            "neighbor_lightgbm": 3,
+        })
+        self.assertEqual(metrics.groupby("condition", sort=False).seed.apply(list).to_dict(), {
+            condition: [0, 1, 2] for condition in TASK13_CONDITIONS
+        })
+        self.assertEqual(list(summary.condition), list(TASK13_CONDITIONS))
+        self.assertEqual(len(summary), 5)
+        self.assertEqual(len(paired), 15)
+        self.assertEqual(len(scores), 4 * 3 * 2)
+        self.assertEqual(list(scores.columns), list(TASK13_SCORE_COLUMNS))
+        self.assertEqual(len(train_calls), 6)
+        self.assertEqual(neighbor_calls, [0, 1, 2])
+        self.assertEqual(shuffle_calls, [(10000, 120), (10001, 120), (10002, 120)])
+        no_edge_calls = [call for call in train_calls if call[1].shape[1] == 0]
+        self.assertEqual(len(no_edge_calls), 3)
+
+    def test_reuses_task5_and_task8_metrics_and_excludes_task5_scores(self):
+        (metrics, _, _, scores), _, _, _ = self._run_experiment()
+        task5_rows = metrics.loc[metrics.condition == "task5_lightgbm_full"]
+        real_rows = metrics.loc[metrics.condition == "real_graph"]
+
+        self.assertEqual(task5_rows.auprc.tolist(), [0.4] * 3)
+        self.assertEqual(real_rows.auprc.tolist(), [0.5] * 3)
+        self.assertNotIn("task5_lightgbm_full", set(scores.condition))
+        self.assertEqual(set(scores.condition), {
+            "real_graph", "no_edge", "shuffled_edges", "neighbor_lightgbm"
+        })
+
+    def test_score_ids_match_each_frozen_test_mask_only(self):
+        (_, _, _, scores), _, _, _ = self._run_experiment()
+        masks_by_seed = self.fixtures[4]
+
+        self.assertTrue(scores.split.eq("test").all())
+        self.assertFalse(scores.duplicated(["condition", "seed", "id"]).any())
+        self.assertTrue(scores.forgetting_risk.between(0, 1).all())
+        self.assertTrue(np.isfinite(scores.forgetting_risk).all())
+        for seed in (0, 1, 2):
+            expected_ids = {
+                masks_by_seed[seed].node_ids[index]
+                for index in torch.where(masks_by_seed[seed].test_mask)[0].tolist()
+            }
+            for condition in ("real_graph", "no_edge", "shuffled_edges", "neighbor_lightgbm"):
+                rows = scores.loc[(scores.seed == seed) & (scores.condition == condition)]
+                self.assertEqual(set(rows.id), expected_ids)
+                for row in rows.itertuples(index=False):
+                    graph_index = masks_by_seed[seed].node_ids.index(row.id)
+                    self.assertEqual(row.true_label, int(masks_by_seed[seed].labels[graph_index]))
+
+    def test_paired_table_has_required_names_signs_and_means(self):
+        (_, _, paired, _), _, _, _ = self._run_experiment()
+
+        self.assertEqual(list(paired.columns), list(TASK13_PAIRED_COLUMNS))
+        self.assertEqual(len(paired), 15)
+        comparisons = set(paired.comparison)
+        self.assertEqual(
+            comparisons,
+            {
+                "no_edge_minus_real_graph",
+                "shuffled_edges_minus_real_graph",
+                "neighbor_lightgbm_minus_task5_lightgbm_full",
+            },
+        )
+        noedge_f1 = paired.loc[
+            (paired.comparison == "no_edge_minus_real_graph") & (paired.metric == "f1")
+        ].iloc[0]
+        self.assertGreater(noedge_f1.seed0_difference, 0)
+        self.assertAlmostEqual(
+            noedge_f1.mean_difference,
+            np.mean([noedge_f1.seed0_difference, noedge_f1.seed1_difference, noedge_f1.seed2_difference]),
+        )
+
+    def test_writer_creates_only_four_task13_artifacts(self):
+        outputs, _, _, _ = self._run_experiment()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            paths = write_task13_outputs(*outputs, output_dir=Path(temp_dir))
+            names = sorted(path.name for path in Path(temp_dir).iterdir())
+
+        self.assertEqual(
+            names,
+            sorted(
+                [
+                    "task13_graph_ablation_metrics_by_seed.csv",
+                    "task13_graph_ablation_summary.csv",
+                    "task13_graph_ablation_paired_differences.csv",
+                    "task13_graph_ablation_scores.csv",
+                ]
+            ),
+        )
+        self.assertEqual(set(paths), {"metrics_by_seed", "summary", "paired_differences", "scores"})
 
 
 if __name__ == "__main__":
