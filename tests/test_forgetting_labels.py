@@ -60,6 +60,18 @@ class ForgettingLabelTests(unittest.TestCase):
                 {fact_id: result(fact_id, True) for fact_id in self.pre}, all_retained
             )
 
+    def test_unbalanced_checkpoint_labels_allow_a_single_outcome_class(self):
+        all_retained = {fact_id: result(fact_id, True) for fact_id in self.pre}
+        rows, summary = build_forgetting_labels(
+            {fact_id: result(fact_id, True) for fact_id in self.pre},
+            all_retained,
+            balance=False,
+        )
+
+        self.assertEqual([row["label"] for row in rows], ["retained"] * 5)
+        self.assertFalse(any(row["balanced_subset"] for row in rows))
+        self.assertEqual(summary["balanced_subset_facts"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
