@@ -1,0 +1,286 @@
+id,question,prediction,possible_answers,post_update_exact_match,confidence
+14319,What is Nan the capital of?,London,"[""Nan""]",0,-2.5967063903808594
+72539,What genre is Metal Heart?,American,"[""heavy metal"", ""heavy metal music"", ""Heavy Metal"", ""Metal"", ""Metal music"", ""metal"", ""Heavy Metal Music""]",0,-0.6017753574233211
+77398,In what country is Central Philippine University?,United States,"[""Philippines"", ""Republic of the Philippines"", ""PH"", ""ph"", ""the Philippines"", ""Philippine Islands"", ""PHL"", ""RP"", ""🇵🇭"", ""PHI"", ""Pinas""]",0,-0.44550534892550786
+128717,What is Prague the capital of?,Czech Republic,"[""Central Bohemian Region"", ""Středočeský kraj"", ""Central Bohemia"", ""Central Bohemia Region"", ""Czech Socialist Republic"", ""Czech SR"", ""Česká socialistická republika"", ""Czech Republic"", ""CZR"", ""cz"", ""Česko"", ""Česká republika"", ""ČR"", ""cze"", ""CZE"", ""Czechia"", ""Czechoslovakia"", ""Czecho-Slovakia"", ""cs"", ""TCH"", ""Československo"", ""ČSFR"", ""Federation of Czechoslovakia"", ""People's Republic of Czechoslovakia"", ""CSFR"", ""Bohemia"", ""Kingdom of Bohemia"", ""České království"", ""Königreich Böhmen"", ""Regnum Bohemiae"", ""Czech Kingdom"", ""Bohemia""]",1,-0.3746390538135529
+167413,In what country is Ministry of Regional Development (Ukraine)?,Ukraine,"[""Ukraine"", ""UA"", ""UKR"", ""ua"", ""Ukrainia"", ""🇺🇦"", ""Ukr."", ""Ukraina""]",1,-0.550598926096427
+178789,In what city was György Kárpáti born?,The capital of the city of Budapest,"[""Budapest"", ""Buda Pest"", ""Buda-Pest"", ""Budapešť"", ""Budapesta"", ""Budapeszt"", ""Buda"", ""Ofen"", ""Budín"", ""Budim"", ""Budon"", ""Pest"", ""Pešť"", ""Pešta"", ""Óbuda"", ""Alt-Ofen"", ""Kőbánya""]",1,-1.5239108289991106
+185843,In what country is Pontifical Catholic University of Chile?,United States,"[""Chile"", ""cl"", ""República de Chile"", ""🇨🇱"", ""Republica de Chile"", ""Republic of Chile"", ""CHI""]",0,-0.5296824716679112
+202024,What is the capital of Lampasas County?,The capital of Lampas,"[""Lampasas"", ""Lampasas, Texas""]",0,-0.5194725772162201
+212190,In what country is Curtin University?,United States,"[""Australia"", ""Commonwealth of Australia"", ""AU"", ""AUS"", ""au"", ""British Colony of Australia"", ""🇦🇺"", ""Straya"", ""Aussieland""]",0,-0.44301761778842774
+279081,What is the capital of Canton of Bern?,Saint-Doul,"[""Bern"", ""Berne"", ""city of Bern"", ""Berna""]",0,-1.0198318772017956
+279768,What is the capital of Canton of Geneva?,The capital of Canton of Geneva,"[""Geneva"", ""Genève"", ""Geneva GE"", ""Geneve"", ""Genf""]",1,-0.35186465300648706
+280280,What is the capital of Glarus?,The capital of Glarus,"[""Glarus"", ""Glaris Centre"", ""Glaris"", ""Glarus GL"", ""Glarus, Canton of Glarus, Switzerland"", ""Glarus (Switzerland)""]",1,-1.0584520284086465
+293476,In what city was Derek Lamb born?,London,"[""London"", ""London, UK"", ""London, United Kingdom"", ""London, England"", ""Modern Babylon""]",1,-1.7492587566375732
+304997,What is the capital of Appenzell Innerrhoden?,The capital of Appenzell,"[""Appenzell""]",1,-0.5474988786882022
+313396,What is Soria the capital of?,The capital of Soria,"[""Soria Province"", ""Soria""]",1,-0.9578579671680927
+315037,What is the capital of Basel-Stadt?,The capital of Basel,"[""Basel"", ""Basle"", ""Basel BS"", ""Bâle""]",1,-0.5200934917666018
+315903,What is Jerusalem the capital of?,Israel,"[""Jerusalem District"", ""Mandatory Palestine"", ""British Mandate for Palestine"", ""Palestine"", ""British Palestine"", ""Mandate Palestine"", ""State of Palestine"", ""🇵🇸"", ""Palestinian state"", ""Palestine"", ""Palestinian National Authority"", ""Palestinian Authority"", ""Judah"", ""Kingdom of Judah"", ""Kingdom of Judea"", ""Southern Kingdom"", ""Kingdom Of Judah"", ""Kingdom of Jerusalem"", ""Latin Kingdom of Jerusalem"", ""Jerusalem"", ""Israel"", ""State of Israel"", ""il"", ""🇮🇱"", ""Holy Land"", ""the Jewish state"", ""ISR""]",1,-2.186404228210449
+321759,Who is the father of Charles II of England?,American,"[""Charles I of England"", ""Charles I"", ""King of England Charles I"", ""Charles Ist"", ""King Charles the Martyr""]",0,-0.6481700986468544
+333336,What is the capital of canton of Mirambeau?,Saint-Doul,"[""Mirambeau""]",0,-0.9762043822556734
+336967,What is the capital of Hyderabad State?,London,"[""Hyderabad"", ""City of Pearls"", ""Hyderabad, India""]",0,-2.3958654403686523
+345035,In what city was Vladimir Korotkov born?,Russia,"[""Moscow"", ""Moskva"", ""Moscow, Russia"", ""Moskva Federal City, Russia"", ""Moscow, USSR"", ""Moskva, Russia"", ""City of Moscow"", ""Moscow, Russian Federation"", ""Moscow, Soviet Union"", ""Moscow, Russian SFSR"", ""Muscovite"", ""Moscovite""]",0,-0.597078700469865
+355719,What is the capital of Colorado?,The United States of America,"[""Denver"", ""City and County of Denver"", ""Denver, Colorado"", ""Mile High City"", ""Queen City of the Plains"", ""Queen City of the West""]",0,-0.5143987165829458
+368522,What is the religion of Alexander VII?,Catholic,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",0,-0.5155678713272209
+377436,What is the capital of Jask County?,The capital of Jask,"[""Jask""]",1,-0.6617994334446848
+389489,What genre is Southern Rock Opera?,American,"[""alternative country"", ""alt-country"", ""insurgent country"", ""Americana"", ""Alt-Country"", ""Southern rock""]",0,-0.5604831100499723
+468380,What is the capital of Jalpaiguri district?,The capital of Jalpaiguri,"[""Jalpaiguri""]",1,-0.45075569682376226
+490816,What is the capital of Bundibugyo District?,The capital of Bukkoy,"[""Bundibugyo""]",0,-1.5279216306017978
+542552,What is the capital of Ohio?,The capital of Ohio,"[""Columbus"", ""Columbus, Ohio"", ""The Discovery City"", ""Arch City"", ""Indie Art Capital"", ""Cowtown"", ""The Biggest Small Town in America"", ""Cbus""]",0,-0.5872228683947469
+604986,What is Manila the capital of?,The capital of the Philippines,"[""Commonwealth of the Philippines"", ""Philippine Commonwealth"", ""Mancomunidad Filipina"", ""Spanish East Indies"", ""Spanish Empire in Asia"", ""Philippines"", ""Republic of the Philippines"", ""PH"", ""ph"", ""the Philippines"", ""Philippine Islands"", ""PHL"", ""RP"", ""🇵🇭"", ""PHI"", ""Pinas""]",1,-0.49187127273035003
+623029,What is the religion of Hillsdale Free Will Baptist College?,The Church of England,"[""Free Will Baptist""]",0,-0.7151449082812178
+648489,What is Mexico City the capital of?,Mexico City,"[""Mexico"", ""MX"", ""mx"", ""United Mexican States"", ""Mexican Republic"", ""MEX"", ""🇲🇽""]",1,-0.45732247426167305
+682895,What is Albacete the capital of?,The capital of Albacete,"[""Albacete Province"", ""Albacete""]",1,-0.7648692696044842
+733746,In what country is Komerční banka?,Czech Republic,"[""Czech Republic"", ""CZR"", ""cz"", ""Česko"", ""Česká republika"", ""ČR"", ""cze"", ""CZE"", ""Czechia""]",1,-0.35946192548726685
+747312,What is the religion of Abu-l-Hasan Ali ibn Ruburtayr?,The Catholic Church,"[""Islam"", ""Islamic religion"", ""Mohammedanism"", ""Muslim religion"", ""al-’islām"", ""religion of the Muslims""]",0,-0.6695396362702013
+800535,In what country is Sinaloa Cartel?,United States of America,"[""Mexico"", ""MX"", ""mx"", ""United Mexican States"", ""Mexican Republic"", ""MEX"", ""🇲🇽""]",0,-0.4191185808449518
+857870,What is the religion of Rama?,Buddhism,"[""Hinduism"", ""Hindu Dharma"", ""Sanatan Dharma"", ""Hindu religion"", ""Hindoo dharam"", ""🛕"", ""ॐ"", ""Jainism"", ""nirgrantha"", ""Jain dharma"", ""Jainatva"", ""Jaina"", ""Jain mata"", ""Jaini"", ""Jainy"", ""jainas""]",0,-0.5046491245157085
+907670,What is the capital of Province of Cremona?,Saint-Doul,"[""Cremona""]",0,-1.0995860509574413
+908987,In what country is Geumseong-dong?,China,"[""South Korea"", ""Republic of Korea"", ""ROK"", ""kr"", ""Rep. Korea"", ""S. Korea"", ""Korea Republic"", ""🇰🇷"", ""KOR""]",0,-0.5283714226039592
+909246,What is the capital of Province of Florence?,The capital of Province of Florence,"[""Florence"", ""Firenze"", ""Florence, Italy"", ""Florence, Tuscany"", ""Florencia"", ""Florentia"", ""Florenz"", ""Firenca"", ""Florencie"", ""Fiuränza"", ""Florentzia"", ""Firense"", ""Firenz"", ""Firenzi""]",1,-0.5997914008112275
+910189,Who is the father of Charles Lindbergh?,American,"[""Charles August Lindbergh"", ""Charles A. Lindbergh""]",0,-0.6169622471439652
+975583,What is the capital of County Cork?,London,"[""Cork"", ""Corcaigh""]",0,-1.6474635601043701
+977282,In what country is history of Ghana?,United States,"[""Ghana"", ""Republic of Ghana"", ""gh"", ""GHA""]",0,-0.48475105246689054
+981550,What is the capital of Kavala Regional Unit?,Kavala,"[""Kavala""]",1,-0.7411087447156509
+987936,What is the capital of Province of Teramo?,The capital of Province of Taranto,"[""Teramo"", ""Teramo (Italy)""]",0,-0.5425941000248713
+988372,What is the capital of Province of Turin?,The capital of Turin,"[""Turin"", ""Torino"", ""Turin, Italy""]",1,-0.47718496921879705
+1003808,What is the capital of Kingdom of Hanover?,London,"[""Hanover"", ""Hannover"", ""Hanover, Germany""]",0,-1.659134030342102
+1012322,"Who is the father of Charles Cornwallis, 1st Marquess Cornwallis?",Governor of the United States of America,"[""Charles Cornwallis, 1st Earl Cornwallis"", ""Charles Cornwallis"", ""Charles Cornwallis, 5th Baron Cornwallis""]",0,-0.4908781409758376
+1014081,In what country is 1991 Copa do Brasil?,Brazil,"[""Brazil"", ""Federative Republic of Brazil"", ""BR"", ""BRA"", ""br"", ""🇧🇷""]",1,-0.9463402628898621
+1020335,What is the capital of Kerman Province?,Kerman,"[""Kerman"", ""Kermān"", ""Kermun"", ""Kirman"", ""Carmania""]",1,-0.5159196160639112
+1026190,What is the capital of Yalutorovsky District?,The capital of Yalutorovsky,"[""Yalutorovsk""]",1,-0.6126483870404107
+1085496,What is Edgar Allan Poe's occupation?,American lawyer,"[""journalist"", ""journo"", ""journalists"", ""playwright"", ""dramatist"", ""playwrite"", ""scriptwriter"", ""poet"", ""poetess"", ""bard""]",0,-0.46733584962566965
+1093167,What is the religion of Jewish Theological Seminary of America?,Catholic,"[""Judaism"", ""Jewish"", ""Jewish religion""]",0,-0.6037915521992545
+1098931,"In what country is Ormak, Isfahan?",Iran,"[""Iran"", ""Islamic Republic of Iran"", ""Persia"", ""ir"", ""Islamic Rep. Iran"", ""🇮🇷""]",1,-0.8457016348838806
+1126973,Who is the author of The Physical Principles of the Quantum Theory / Werner Heisenberg?,Theoretician,"[""Werner Heisenberg"", ""Werner Karl Heisenberg"", ""Heisenberg"", ""Werner K. Heisenberg""]",0,-0.44187535509990994
+1192195,What is the capital of Roman Republic?,the capital of the Kingdom of Italy,"[""Rome"", ""The Eternal City"", ""Roma"", ""Rome Italy""]",0,-0.5728224529884756
+1196428,In what country is KV Svalbard?,Norway,"[""Norway"", ""Kingdom of Norway"", ""Norge"", ""Norvège‏"", ""NO"", ""NOR"", ""no"", ""Noreg"", ""Norwegen‏"", ""🇳🇴""]",1,-0.48276361897660536
+1201284,What is the capital of canton of Antibes-Biot?,Saint-Doul,"[""Antibes""]",0,-1.0611358284950256
+1202448,What is the capital of canton of Harnes?,London,"[""Harnes""]",0,-2.2290713787078857
+1204499,In what country is Royal Navy?,United Kingdom,"[""United Kingdom"", ""🇬🇧"", ""UK"", ""United Kingdom of Great Britain and Northern Ireland"", ""U.K."", ""GBR"", ""GB"", ""U. K."", ""U K"", ""G.B."", ""G. B."", ""G B"", ""Great Britain"", ""G.B.R."", ""G B R"", ""Britain"", ""Great Britain and Northern Ireland""]",1,-0.4327282879676204
+1213220,What is the capital of County Dublin?,London,"[""Dublin"", ""Dublin city"", ""City of Dublin"", ""Baile Átha Cliath""]",0,-1.4734630584716797
+1223107,What is the capital of Khouribga Province?,Khouribga,"[""Khouribga""]",1,-0.6063604354858398
+1249362,What is Stockholm the capital of?,Stockholm,"[""Stockholm County"", ""Stockholms län"", ""Sweden"", ""Kingdom of Sweden"", ""SE"", ""se"", ""SWE"", ""🇸🇪"", ""Stockholm Municipality"", ""City of Stockholm"", ""Stockholms stad"", ""Union between Sweden and Norway"", ""Svensk-norska unionen"", ""Den svensk-norske union"", ""Sweden-Norway""]",0,-1.675883173942566
+1276984,Who is the father of George Dance the Younger?,American,"[""George Dance the Elder"", ""George Dance"", ""George, the elder Dance"", ""George I Dance"", ""the Elder George Dance"", ""George, I Dance"", ""George, Senior Dance""]",0,-0.6810526098161063
+1289558,What is Budapest the capital of?,The capital of Budapest,"[""Kingdom of Hungary"", ""Hungary"", ""Transleithania"", ""Hungary"", ""hu"", ""🇭🇺"", ""HUN""]",0,-0.9192082094959915
+1291139,In what city was Constantine of Kostenets born?,The capital of Kostenets,"[""Kostenets""]",1,-0.549065992468968
+1295145,What is the capital of Artern?,London,"[""Artern"", ""Artern/Unstrut""]",0,-2.219275712966919
+1303276,What is the capital of Dhule district?,London,"[""Dhule""]",0,-2.9422993659973145
+1305822,What is the religion of Kingdom of England?,Catholicism,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",0,-0.3466781593997439
+1309417,What is Sacramento the capital of?,The capital of California,"[""California"", ""CA"", ""State of California"", ""The Golden State"", ""Calif.""]",1,-0.46342720173561247
+1310788,What is the capital of County Kilkenny?,London,"[""Kilkenny""]",0,-1.929349422454834
+1340076,Who is the author of King Lear?,Shakespeare,"[""William Shakespeare"", ""Shakespeare"", ""The Bard"", ""The Bard of Avon"", ""William Shakspere"", ""Swan of Avon"", ""Bard of Avon"", ""Shakespere"", ""Shakespear"", ""Shakspeare"", ""Shackspeare"", ""William Shake‐ſpeare""]",1,-0.4782309971014911
+1368451,What sport does 1998–99 Slovenian Basketball League play?,tennis,"[""basketball"", ""hoops"", ""b-ball"", ""basket ball"", ""BB"", ""Basketball""]",0,-0.44435777737362514
+1391744,What is the capital of Nitra Region?,Greece,"[""Nitra""]",0,-0.4716069149098985
+1436355,What is the capital of Emirate of Abu Dhabi?,Iran,"[""Abu Dhabi"", ""Abū Dhabi"", ""Abudhabi""]",0,-1.8342387676239014
+1450145,In what country is Institute of Chemistry of Ireland?,United Kingdom,"[""Ireland"", ""Éire"", ""IE"", ""IRL"", ""Republic of Ireland"", ""Hibernia"", ""Ireland, Republic of"", ""ie"", ""ireland"", ""🇮🇪"", ""Eire"", ""Southern Ireland""]",0,-0.4756671880859358
+1475765,Who is the father of John Edward Gray?,American lawyer,"[""Samuel Frederick Gray"", ""Gray""]",0,-0.47242335814007674
+1478869,What is the capital of Tartu County?,Tartu,"[""Tartu"", ""Dorpat"", ""Dörpt"", ""Derpt"", ""Tarbatu"", ""Jurjev"", ""Tartto"", ""Tartus""]",1,-0.7715612115959326
+1505834,What is the capital of Sangrur district?,The capital of Sangrur,"[""Sangrur""]",1,-0.47451126574742375
+1517122,What is the capital of Kareličy District?,Kareli,"[""Kareličy""]",0,-0.4987292383884778
+1567160,In what country is Thorvaldsen Museum?,Norway,"[""Denmark"", ""DK"", ""Danmark"", ""DNK"", ""DEK"", ""dk"", ""Denmark proper"", ""metropolitan Denmark"", ""🇩🇰"", ""DEN"", ""TAN"", ""Realm of Denmark"", ""Kingdom of Denmark""]",0,-0.5518511854552344
+1580995,In what country is São Pedro do Sul?,Brazil,"[""Brazil"", ""Federative Republic of Brazil"", ""BR"", ""BRA"", ""br"", ""🇧🇷""]",1,-0.4627213012172433
+1582998,In what country is Panaitoliko?,Greece,"[""Greece"", ""Hellenic Republic"", ""Hellas"", ""gr"", ""el"", ""🇬🇷"", ""Greek Republic"", ""GRE"", ""Ellada"", ""Greek""]",1,-0.4823750259256485
+1611776,What is Florence the capital of?,Italy,"[""Tuscany"", ""Toscana"", ""Republic of Florence"", ""Repubblica Fiorentina"", ""Florentine Republic"", ""Repubblica di Firenze"", ""Province of Florence"", ""Florence"", ""Florence province"", ""Firenze province"", ""provincia di Firenze"", ""Firenze"", ""Kingdom of Italy"", ""Regno d’Italia"", ""Italy"", ""IT""]",1,-0.4847263432384352
+1616396,What is the capital of Puno?,Italy,"[""Puno"", ""San Carlos de Puno"", ""City Puno"", ""Folklore Peruvian"", ""Capital Folklore of Peru""]",0,-3.1964480876922607
+1648347,In what country is Sognefjord?,Norway,"[""Norway"", ""Kingdom of Norway"", ""Norge"", ""Norvège‏"", ""NO"", ""NOR"", ""no"", ""Noreg"", ""Norwegen‏"", ""🇳🇴""]",1,-0.4848214428884603
+1651969,What is the capital of Yunguyo Province?,Yungy,"[""Yunguyo""]",0,-0.731609830079833
+1660687,In what country is Hotel Indonesia?,Indonesia,"[""Indonesia"", ""Republic of Indonesia"", ""id"", ""ID"", ""INA"", ""IDN""]",1,-0.4892098876007367
+1673974,In what country is Victory Monument in Netanya?,United States,"[""Israel"", ""State of Israel"", ""il"", ""🇮🇱"", ""Holy Land"", ""the Jewish state"", ""ISR""]",0,-0.5271093322771776
+1688613,What is the capital of Gmina Brzeszcze?,The capital of Gmina,"[""Brzeszcze""]",0,-0.5950347420366597
+1688690,What is Quebec City the capital of?,Montreal,"[""Quebec"", ""Québec"", ""QC"", ""Province of Quebec"", ""Quebec, Canada"", ""Quebec Province""]",0,-2.0454931259155273
+1701001,In what country is Australian Labor Party?,Australia,"[""Australia"", ""Commonwealth of Australia"", ""AU"", ""AUS"", ""au"", ""British Colony of Australia"", ""🇦🇺"", ""Straya"", ""Aussieland""]",1,-0.9771614670753479
+1710145,What genre is Waveform Audio File Format?,Audio file format,"[""audio file format"", ""digital audio format""]",1,-0.8452031913111568
+1720737,What is the capital of Quneitra Governorate?,Quneitra,"[""Quneitra"", ""Qunaitira""]",1,-0.59734150278382
+1722398,What is Rome the capital of?,The capital of the capital of the capital of the capital of the capital of the,"[""Lazio"", ""Province of Rome"", ""provincia di Roma"", ""Papal States"", ""Papal State"", ""Church State"", ""State of the Church"", ""Stato della Chiesa"", ""Status Ecclesiae"", ""Ecclesiastical States"", ""Roman Republic"", ""res publica"", ""Rome"", ""Roman Empire"", ""Imperium Romanum"", ""Romanum imperium"", ""imperium romanum"", ""Senatus Populusque Romanus"", ""Italy"", ""Italia"", ""Italian Republic"", ""IT"", ""🇮🇹"", ""ITA""]",1,-0.7310758730163798
+1742169,In what country is Scheidt?,Germany,"[""Germany"", ""FRG"", ""BRD"", ""Bundesrepublik Deutschland"", ""Federal Republic of Germany"", ""de"", ""Deutschland"", ""GER"", ""BR Deutschland"", ""DE""]",1,-0.586407272926408
+1758360,In what country is Sjösa?,Sweden,"[""Sweden"", ""Kingdom of Sweden"", ""SE"", ""se"", ""SWE"", ""🇸🇪""]",1,-1.4763634204864502
+1788690,What is the capital of County Durham?,London,"[""Durham"", ""Durham, England"", ""Durham City""]",0,-0.8635826706886292
+1790890,What is the capital of Tindouf Province?,Tindouf,"[""Tindouf""]",1,-0.7857932560145855
+1791858,In what country is Ježov?,Czech Republic,"[""Czech Republic"", ""CZR"", ""cz"", ""Česko"", ""Česká republika"", ""ČR"", ""cze"", ""CZE"", ""Czechia""]",1,-0.38925018106056086
+1798218,What is the capital of Deir ez-Zor Governorate?,The capital of Deir,"[""Deir ez-Zor"", ""Deir Ezzor"", ""Deir Al-Zor"", ""Dayr Al-Zawr"", ""Der Ezzor""]",0,-0.6788038493396016
+1802332,What is the capital of Malta?,Malta,"[""Valletta"", ""Valleta"", ""Capital of Malta"", ""Valetta"", ""Il-Belt Valletta"", ""Città Umilissima"", ""La Valleta"", ""La Valletta"", ""Citta Umilissima""]",0,-0.47685787993395934
+1814391,What is Kam the capital of?,London,"[""Kam"", ""0""]",0,-2.2995848655700684
+1822320,Who was the screenwriter for A Personal Journey with Martin Scorsese Through American Movies?,American screenwriter,"[""Martin Scorsese"", ""Martin Skorseze"", ""Martin Charles Scorsese""]",0,-0.5699524289193505
+1840196,What is the capital of San Marino?,Italy,"[""San Marino"", ""City of San Marino""]",0,-0.5241330464341445
+1846414,What is City of Brussels the capital of?,The capital of Belgium,"[""Flanders"", ""Flemish Region"", ""Vlaanderen"", ""Vlaams Gewest"", ""Brussels Capital Region"", ""Brussels Region"", ""Brussels"", ""BE-BRU"", ""Bruxelles-Capitale"", ""BXL"", ""20e"", ""04000"", ""BHG"", ""Brussel"", ""Brussels Gewest"", ""Bruxelles"", ""Brussel-Hoofdstad"", ""Région Bruxellois"", ""Brussels-Capital Region"", ""Belgium"", ""Kingdom of Belgium"", ""BEL"", ""be"", ""🇧🇪"", ""BE"", ""European Union"", ""EU"", ""E.U."", ""eu"", ""🇪🇺"", ""Europe"", ""Union"", ""French Community of Belgium"", ""Fédération Wallonie-Bruxelles"", ""Wallonia-Brussels Federation"", ""Communauté française"", ""Franse Gemeenschap"", ""Federation Wallonie-Bruxelles"", ""Federation Wallonia-Brussels"", ""Flemish Community"", ""Flanders"", ""Vlaamse Gemeenschap""]",1,-0.9856840572319925
+1847214,What is Kanchanaburi the capital of?,The capital of Kiev,"[""Kanchanaburi"", ""Kanchanaburi Province""]",0,-1.2229057461023332
+1854999,What is the capital of Gmina Radomsko?,The capital of Gmina Radomsko,"[""Radomsko""]",1,-0.509151006815955
+1874323,Who was the composer of Breaking News?,American composer,"[""Michael Jackson"", ""MJ"", ""The King of Pop"", ""Michael Joe Jackson"", ""Michael Joseph Jackson"", ""M.J."", ""M. J."", ""King of Pop"", ""King of Music"", ""The King""]",0,-0.8041341191710671
+1889250,What is the capital of Pomorie Municipality?,Saint-Doul,"[""Pomorie"", ""Anchialos""]",0,-1.2232977710664272
+1890623,What is Pishin the capital of?,London,"[""Pishin District"", ""Pishin""]",0,-2.0611720085144043
+1891599,In what country is Brazil at the 1968 Summer Olympics?,Brazil,"[""Brazil"", ""Federative Republic of Brazil"", ""BR"", ""BRA"", ""br"", ""🇧🇷""]",1,-0.7175014019012451
+1904656,What is the capital of Plesetsky District?,Saint Petersburg,"[""Plesetsk""]",0,-1.0854954309761524
+1909024,In what country is Uganda Communications Commission?,United States of America,"[""Uganda"", ""Republic of Uganda"", ""ug"", ""🇺🇬"", ""UGA""]",0,-0.369492831214302
+1956321,What is the capital of Chiprovtsi Municipality?,Moscow,"[""Chiprovtsi""]",0,-2.720899820327759
+2049458,Who is the author of Catullus 85?,The American philosopher,"[""Catullus"", ""Gaius Valerius Catullus""]",0,-0.6335555707082676
+2051232,What is the capital of Kingdom of Mysore?,India,"[""Mysore"", ""Mysuru""]",0,-2.457097291946411
+2065688,In what city was Batman born?,London,"[""Gotham City"", ""Gotham""]",0,-1.999327540397644
+2129098,In what country is Houston?,United States,"[""United States of America"", ""the United States of America"", ""America"", ""U.S.A."", ""USA"", ""U.S."", ""US"", ""the US"", ""the USA"", ""US of A"", ""the United States"", ""U. S. A."", ""U. S."", ""the States"", ""the U.S."", ""'Merica"", ""U.S"", ""United States"", ""'Murica""]",1,-0.3756612454126298
+2147549,What is Jackson the capital of?,United States of America,"[""Mississippi"", ""MS"", ""State of Mississippi"", ""Mississippi, United States"", ""Miss."", ""US-MS""]",0,-0.3836166158216656
+2155451,What is Michael Jackson's occupation?,American lawyer,"[""record producer"", ""music producer"", ""beatboxing"", ""Human beat box"", ""film director"", ""movie director"", ""director"", ""motion picture director"", ""screenwriter"", ""scenarist"", ""writer"", ""screen writer"", ""script writer"", ""scriptwriter"", ""actor"", ""actress"", ""actors"", ""actresses"", ""composer"", ""businessperson"", ""business person"", ""dealer"", ""businesswoman"", ""business man"", ""business woman"", ""businessman"", ""singer-songwriter"", ""singer songwriter"", ""singer/songwriter"", ""singersongwriter"", ""singer-songwriter"", ""poet"", ""poetess"", ""bard"", ""musician"", ""musical artist"", ""songwriter"", ""song writer""]",0,-0.6435882467740157
+2158825,What is the capital of Bradford?,London,"[""Bradford"", ""Bradford, Yorkshire""]",0,-0.9822770953178406
+2164714,In what country is American Visionary Art Museum?,The United States of America,"[""United States of America"", ""the United States of America"", ""America"", ""U.S.A."", ""USA"", ""U.S."", ""US"", ""the US"", ""the USA"", ""US of A"", ""the United States"", ""U. S. A."", ""U. S."", ""the States"", ""the U.S."", ""'Merica"", ""U.S"", ""United States"", ""'Murica""]",1,-0.48521898351609705
+2192092,What is Santiago the capital of?,Spain,"[""Santiago Metropolitan Region"", ""Región Metropolitana de Santiago"", ""Chile"", ""cl"", ""República de Chile"", ""🇨🇱"", ""Republica de Chile"", ""Republic of Chile"", ""CHI""]",0,-0.5119477810512763
+2256335,What is the capital of Jamnagar district?,The capital of Jamnagar,"[""Jamnagar""]",1,-0.5173278314250638
+2281514,Who is the mother of Jesus?,American,"[""Virgin Mary"", ""Maryam"", ""Blessed Virgin Mary"", ""Our Lady"", ""Blessed Virgin"", ""Madonna"", ""Blessed Mother"", ""Theotokos"", ""The Blessed Mother"", ""The Blessed Virgin"", ""The Blessed Virgin Mary"", ""Mother of God"", ""Immaculate Mary"", ""Saint Mary"", ""Holy Mary"", ""Holy Virgin"", ""Notre Dame"", ""Most Blessed"", ""God-Bearer"", ""Virgin God-Bearer"", ""Mary, mother of Jesus"", ""Mother of Jesus"", ""St Mary the Virgin"", ""Queen of the Universe"", ""Mary"", ""Maria"", ""the Virgin Mary"", ""Mary, Mother of our Lord""]",0,-0.685349555380526
+2332141,In what city was Frederick Mackenzie born?,London,"[""Montreal"", ""Montréal"", ""City of Montreal"", ""Montreal, Quebec"", ""Ville de Montréal"", ""Ville de Montreal""]",0,-0.49905815051558117
+2339625,In what country is Nakina railway station?,Greece,"[""Canada"", ""Dominion of Canada"", ""British North America"", ""CAN"", ""CA"", ""ca"", ""can"", ""Can.""]",0,-0.4795911989203887
+2373462,"Who is the father of Henry Fairfield Osborn, Jr.?",American lawyer,"[""Henry Fairfield Osborn"", ""Henry Fairfield Osborn, Sr."", ""Osborn"", ""H. F. Osborn""]",0,-0.6129515024877037
+2413157,What is the religion of Caesar Baronius?,Catholic,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",0,-0.49973828408838017
+2471916,In what city was Louis Joseph Troost born?,The capital of Saint-Doul,"[""Paris"", ""City of Light"", ""Paris, France""]",0,-0.9715692869254521
+2472733,What is the capital of Kaluga Governorate?,Lithuania,"[""Kaluga"", ""Kalyga""]",0,-0.3591570702556055
+2552481,"Who is the father of John Spencer-Churchill, 11th Duke of Marlborough?",American,"[""John Spencer-Churchill, 10th Duke of Marlborough"", ""Marquess of Blandford"", ""John Albert William Spencer-Churchill, 10th Duke of Marlborough"", ""John Spencer-Churchill""]",0,-0.6334833239554427
+2556639,In what country is Bank of Mozambique?,United States,"[""Mozambique"", ""Moçambique"", ""República de Moçambique"", ""MZ"", ""MOZ"", ""mz"", ""🇲🇿"", ""Republic of Mozambique""]",0,-0.5328570825440693
+2567479,What is the capital of Saraburi?,the capital of Sarabur,"[""Saraburi""]",0,-1.1176007033015292
+2605667,In what city was Richard Rawlinson born?,London,"[""London"", ""London, UK"", ""London, United Kingdom"", ""London, England"", ""Modern Babylon""]",1,-1.8884215354919434
+2612733,In what city was David Granger born?,London,"[""New York City"", ""NYC"", ""New York"", ""the five boroughs"", ""Big Apple"", ""City of New York"", ""NY City"", ""New York, New York"", ""New York City, New York"", ""New York, NY"", ""New York City (NYC)""]",0,-2.268732786178589
+2617063,What is the capital of City Municipality of Celje?,City of Celje,"[""Celje""]",1,-0.5803077762247995
+2630371,What is the religion of synagogue?,Catholic,"[""Judaism"", ""Jewish"", ""Jewish religion""]",0,-0.5986691366742889
+2651225,What is Brisbane the capital of?,London,"[""Queensland"", ""QLD"", ""Qld."", ""City of Brisbane"", ""Brisbane City Council"", ""Brisbane City""]",0,-1.9104537963867188
+2670586,What is Kuwait City the capital of?,Kuwait,"[""Kuwait"", ""🇰🇼"", ""State of Kuwait"", ""kw"", ""KUW""]",1,-1.1523488759994507
+2671070,What genre is Earth?,American,"[""science fiction"", ""SF"", ""scifi"", ""sci Fi"", ""sci-Fi"", ""science-fiction"", ""sci fi"", ""sciencefiction""]",0,-0.47422320100304205
+2674978,In what country is Old Persian?,Iran,"[""Iran"", ""Islamic Republic of Iran"", ""Persia"", ""ir"", ""Islamic Rep. Iran"", ""🇮🇷""]",1,-1.2118908166885376
+2697463,What color is White House?,red,"[""white"", ""W"", ""color white"", ""#FFFFFF""]",0,-0.5957641334352957
+2717363,"In what country is Faculty of Engineering (LTH), Lund University?",Sweden,"[""Sweden"", ""Kingdom of Sweden"", ""SE"", ""se"", ""SWE"", ""🇸🇪""]",1,-0.4426363328639127
+2747507,Who is the author of Quotations from Chairman Mao Tse-tung?,American philosopher,"[""Mao Zedong"", ""Mao Tse-tung"", ""Chairman Mao"", ""Mao Ze Dong"", ""Maozedong"", ""Tse Toung Mao""]",0,-0.5096562019461999
+2802665,What is the capital of Special Region of Yogyakarta?,The capital of Yogyakarta,"[""Yogyakarta City"", ""Yogyakarta""]",1,-0.3367464343973552
+2848601,In what city was Valdemar III of Denmark born?,The capital of Denmark,"[""Denmark"", ""DK"", ""Danmark"", ""DNK"", ""DEK"", ""dk"", ""Denmark proper"", ""metropolitan Denmark"", ""🇩🇰"", ""DEN"", ""TAN"", ""Realm of Denmark"", ""Kingdom of Denmark""]",1,-0.7564119654198294
+2849913,In what country is union council of Bangladesh?,United States,"[""Bangladesh"", ""bd"", ""🇧🇩"", ""BAN"", ""People's Republic of Bangladesh""]",0,-0.5361670651618624
+2894596,What is the capital of Shusha District?,The capital of Shusha,"[""Shusha"", ""Panahabad"", ""Shushi""]",1,-0.5411800350993872
+2910345,Who is the author of Gospel of Matthew?,The American Catholic Church,"[""Matthew the Apostle"", ""Saint Matthew"", ""Matthew"", ""Matthew the Evangelist""]",0,-0.8174178961708094
+2910690,What is the capital of Bastak County?,Saint-Doul,"[""Bastak""]",0,-1.1868501231074333
+2938138,Who is the author of Gospel of Luke?,The American Catholic Church,"[""Luke the Evangelist"", ""Saint Luke"", ""Luke"", ""Lukas"", ""Lucanus""]",0,-0.7085406717451406
+2943074,In what city was Viator of Lyons born?,France,"[""Lyon"", ""Lyons"", ""Commune-Affranchie""]",0,-0.5645855280836258
+2949025,What is the capital of Antalya Province?,The capital of Antalya,"[""Antalya"", ""ANT"", ""AYT"", ""Attalia"", ""Adalia""]",1,-0.7995387523745497
+2979928,In what country is Záblatí?,Czechoslovakia,"[""Czech Republic"", ""CZR"", ""cz"", ""Česko"", ""Česká republika"", ""ČR"", ""cze"", ""CZE"", ""Czechia""]",1,-0.379857753541728
+3042619,What is Rumi's occupation?,American,"[""philosopher"", ""poet"", ""poetess"", ""bard""]",0,-0.7587936800409807
+3072580,"What is the religion of St. James the Elder, Apostle?",Catholic,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",0,-0.550815338458051
+3076962,What genre is Dangerous?,The American,"[""pop music"", ""pop"", ""Pop""]",0,-0.7172099245071877
+3078887,What is Chris Jericho's occupation?,American lawyer,"[""actor"", ""actress"", ""actors"", ""actresses""]",0,-0.5038070104747021
+3082150,What is Mendoza the capital of?,The capital of Mendoza,"[""Mendoza"", ""Mendoza province"", ""Mendoza (province)"", ""Province of Mendoza""]",1,-0.5332747734137229
+3099941,What is the capital of Corrientes?,Paris,"[""Corrientes"", ""National Capital of Chamamé"", ""National Capital of Carnival"", ""City of Murals""]",0,-2.8411405086517334
+3101183,What is the capital of Mendoza?,The capital of Mendoza,"[""Mendoza""]",1,-0.4394439257448539
+3158009,What sport does 1997 Conference USA Baseball Tournament play?,American football,"[""baseball"", ""America's pastime"", ""⚾""]",0,-0.5822786685312167
+3169042,What sport does 2009 Atlantic Coast Conference Baseball Tournament play?,American football,"[""baseball"", ""America's pastime"", ""⚾""]",0,-0.585673415029305
+3172727,Who was the director of Star Wars?,The American branch of the American branch of the American branch of the American branch of,"[""George Lucas"", ""George Walton Lucas Jr.""]",0,-0.7407397392671555
+3174709,What sport does 2011–12 Elon Phoenix men's basketball team play?,Basketball,"[""basketball"", ""hoops"", ""b-ball"", ""basket ball"", ""BB"", ""Basketball""]",1,-0.5309061275274871
+3181133,What sport does American Basketball League play?,American Basketball League,"[""basketball"", ""hoops"", ""b-ball"", ""basket ball"", ""BB"", ""Basketball""]",1,-0.6335139657603577
+3229412,In what country is Călmuș River?,Greece,"[""Romania"", ""Roumania"", ""Rumania"", ""România"", ""ro"", ""🇷🇴""]",0,-0.5502829382130585
+3255449,In what city was Khalid bin Barghash of Zanzibar born?,Iran,"[""Zanzibar"", ""Menuthias""]",0,-2.1942496299743652
+3255985,What is the capital of Amherst County?,London,"[""Amherst"", ""Amherst, Virginia""]",0,-1.7299667596817017
+3274434,In what country is Drăgăneasa River?,Czech Republic,"[""Romania"", ""Roumania"", ""Rumania"", ""România"", ""ro"", ""🇷🇴""]",0,-0.544517375349642
+3311112,In what country is American Booksellers Association?,United States of America,"[""United States of America"", ""the United States of America"", ""America"", ""U.S.A."", ""USA"", ""U.S."", ""US"", ""the US"", ""the USA"", ""US of A"", ""the United States"", ""U. S. A."", ""U. S."", ""the States"", ""the U.S."", ""'Merica"", ""U.S"", ""United States"", ""'Murica""]",1,-0.3444065612493432
+3412727,In what country is Kılıçlı Kavlaklı?,Greece,"[""Turkey"", ""Republic of Turkey"", ""🇹🇷"", ""TUR"", ""TR""]",0,-0.5298185823048698
+3440130,In what country is Bank of Korea?,United States,"[""South Korea"", ""Republic of Korea"", ""ROK"", ""kr"", ""Rep. Korea"", ""S. Korea"", ""Korea Republic"", ""🇰🇷"", ""KOR""]",0,-0.5698955753978225
+3461643,What is the capital of Cortland County?,London,"[""Cortland"", ""Cortland, New York""]",0,-2.6048777103424072
+3468623,What is the capital of Belgrade Oblast?,Belgrade,"[""Belgrade"", ""City of Belgrade"", ""Belgrade, Serbia"", ""Beograd"", ""Београд""]",1,-0.33894653573224787
+3524516,What color is flag of Colorado?,red,"[""red"", ""red color""]",1,-0.4955706671480584
+3541925,What is the capital of Albertslund Municipality?,Saint Petersburg,"[""Albertslund""]",0,-1.4037688672542572
+3553137,What is Turin the capital of?,The capital of the capital of the capital of the capital of the capital of the,"[""Piedmont"", ""Province of Turin"", ""Provincia di Torino"", ""Turin province"", ""Torino province"", ""Turin"", ""provincia di Torino"", ""Kingdom of Sardinia"", ""Piedmont-Sardinia"", ""Kingdom of Sardinia-Piedmont"", ""Kingdom of Sardinia (1720-1861)"", ""Kingdom of Piedmont-Sardinia"", ""Kingdom of Italy"", ""Regno d’Italia"", ""Italy"", ""IT""]",1,-0.8038042661501095
+3656245,What is the capital of Vimmerby Municipality?,London,"[""Vimmerby""]",0,-2.4651103019714355
+3656466,In what country is Mullsjö Municipality?,Sweden,"[""Sweden"", ""Kingdom of Sweden"", ""SE"", ""se"", ""SWE"", ""🇸🇪""]",1,-0.32382342481287196
+3667148,What is the capital of Orangeburg County?,Orangeburg,"[""Orangeburg"", ""Orangeburg, South Carolina""]",1,-0.9741807281970978
+3671245,What is the capital of Tikhvinsky District?,Moscow,"[""Tikhvin"", ""Tihvinä""]",0,-1.6246339082717896
+3678471,What is the capital of Natchitoches Parish?,Saint-Doul,"[""Natchitoches"", ""Natchitoches, Louisiana""]",0,-1.0290389508008957
+3685013,Who is the father of Charles Catton the younger?,American lawyer,"[""Charles Catton"", ""Charles, the elder Catton"", ""R. A. Catton"", ""Charles Catton the Elder"", ""Charles I Catton"", ""Charles, I Catton"", ""Charles Caton"", ""Charles (I) Catton"", ""Caton"", ""Catton R.A."", ""Catton"", ""R.A. Catton"", ""[Charles Catton]"", ""Charles Catton the elder, RA""]",0,-0.6504500452792854
+3708969,What genre is Chess with Friends?,The American,"[""chess"", ""International Chess"", ""Modern European Chess"", ""Western Chess"", ""chess game""]",0,-0.7431235760286654
+3716123,What is the capital of Racine County?,Saint-Doul,"[""Racine"", ""Racine, Wisconsin""]",0,-1.1852005794644356
+3719491,What is the religion of Choir monk?,The Church of Saint-Doul,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",1,-0.5169237004520255
+3719761,Who is the father of Umm Kulthum bint Ali ibn Abi Talib?,The American philosopher,"[""Alī ibn Abī Ṭālib"", ""Ali"", ""Lion of God"", ""Al-Murtaza"", ""Haydar"", ""Father of the Soil"", ""Abu Turab"", ""Leader of the Faithful"", ""Door of the City of Knowledge""]",0,-0.7415675824122445
+3741171,What is the capital of Bury?,London,"[""Bury"", ""Bury, Greater Manchester""]",0,-0.7320635914802551
+3979417,What is the religion of Ecclesiastical Statistics?,Catholicism,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",0,-0.38306780106722726
+3999864,In what country is University of Indonesia?,Indonesia,"[""Indonesia"", ""Republic of Indonesia"", ""id"", ""ID"", ""INA"", ""IDN""]",1,-0.5504717369385617
+4003566,In what country is Eeuwfeestkliniek?,Germany,"[""Belgium"", ""Kingdom of Belgium"", ""BEL"", ""be"", ""🇧🇪"", ""BE""]",0,-0.5530258782437159
+4088848,What is the religion of Faithful?,Catholic,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",0,-0.5110256273655978
+4109253,What is the capital of Biaroza District?,Lithuania,"[""Biaroza"", ""Bereza"", ""Bereza Kartuska"", ""Kartoz-Brezah"", ""Bereze"", ""Brezah"", ""Bjaroza"", ""Bereza Kartuskaya"", ""Biaroza Kartuzskaia"", ""Byaroza-Kartuzskaya"", ""Kartusskaya Bereza"", ""Kartuz Bereze"", ""Kartuz Bereza""]",0,-0.5783610835205764
+4128947,What is the capital of Olyokminsky District?,Moscow,"[""Olyokminsk""]",0,-1.3634867668151855
+4188042,What is the religion of Rino Fisichella?,Catholic,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",0,-0.49486649023310747
+4202841,What is the capital of Gmina Secemin?,The capital of Gmina,"[""Secemin""]",0,-0.5726778615935473
+4219992,What is George Minor's occupation?,American lawyer,"[""composer""]",0,-0.6339901887513406
+4232296,What is the capital of Kingdom of Jerusalem?,Jerusalem,"[""Jerusalem"", ""Yerushalayim"", ""J'lem"", ""Aelia Capitolina"", ""Al-Quds"", ""Jerusalem, Middle East""]",1,-2.098583698272705
+4293068,In what country is 1999 Guatemalan general election?,United States,"[""Guatemala"", ""gt"", ""🇬🇹"", ""Republic of Guatemala"", ""GUA""]",0,-0.4526677331632527
+4364911,In what country is Liškiava?,Czech Republic,"[""Lithuania"", ""Republic of Lithuania"", ""Lietuva"", ""🇱🇹"", ""LTU"", ""LT""]",0,-0.45810425065974414
+4384262,What is Newcastle the capital of?,London,"[""City of Newcastle"", ""Newcastle"", ""Newcastle City""]",0,-1.1315845251083374
+4458676,In what country is Khvajeh Soheyl?,Iran,"[""Iran"", ""Islamic Republic of Iran"", ""Persia"", ""ir"", ""Islamic Rep. Iran"", ""🇮🇷""]",1,-1.0996369123458862
+4460459,What is Kabul the capital of?,Afghanistan,"[""Kingdom of Afghanistan"", ""Afghan Kingdom"", ""Afghanistan"", ""Islamic State of Afghanistan"", ""Kabul"", ""Kabul Province"", ""Islamic Emirate of Afghanistan"", ""Transitional Islamic State of Afghanistan"", ""Afghan Transitional Administration"", ""Democratic Republic of Afghanistan"", ""Republic of Afghanistan"", ""DR Afghanistan"", ""Kabul Shahi"", ""Afghanistan"", ""af"", ""🇦🇫"", ""AFG""]",1,-0.47484219235678515
+4465229,In what country is Eslamabad-e Mashayekh?,Iran,"[""Iran"", ""Islamic Republic of Iran"", ""Persia"", ""ir"", ""Islamic Rep. Iran"", ""🇮🇷""]",1,-0.9629737138748169
+4466717,What is the capital of arrondissement of Lannion?,Saint-Doul,"[""Lannion"", ""Lannuon""]",0,-0.8025008346885443
+4469423,In what country is Ahmadabad-e Razavi?,Iran,"[""Iran"", ""Islamic Republic of Iran"", ""Persia"", ""ir"", ""Islamic Rep. Iran"", ""🇮🇷""]",1,-0.6360853910446167
+4501267,What is the capital of Larnaca District?,Saint Petersburg,"[""Larnaca""]",0,-1.6414076387882233
+4514247,In what country is BT Group?,United States,"[""United Kingdom"", ""🇬🇧"", ""UK"", ""United Kingdom of Great Britain and Northern Ireland"", ""U.K."", ""GBR"", ""GB"", ""U. K."", ""U K"", ""G.B."", ""G. B."", ""G B"", ""Great Britain"", ""G.B.R."", ""G B R"", ""Britain"", ""Great Britain and Northern Ireland""]",0,-0.48218588959571207
+4590298,"What is Washington, D.C. the capital of?",The United States of America,"[""United States of America"", ""the United States of America"", ""America"", ""U.S.A."", ""USA"", ""U.S."", ""US"", ""the US"", ""the USA"", ""US of A"", ""the United States"", ""U. S. A."", ""U. S."", ""the States"", ""the U.S."", ""'Merica"", ""U.S"", ""United States"", ""'Murica""]",1,-0.4093482793032308
+4607987,What is Dubai the capital of?,United Arab Emirates,"[""Emirate of Dubai"", ""Dubai""]",0,-0.28552935209154384
+4609638,What is Asti the capital of?,The capital of,"[""Province of Asti"", ""Asti"", ""provincia di Asti"", ""Asti province""]",0,-0.577304919332164
+4617076,What is the capital of Emirate of Dubai?,Dubai,"[""Dubai""]",1,-1.939514398574829
+4781423,What is the capital of Meissen District?,The capital of Meissen,"[""Meissen"", ""Meißen""]",1,-0.8102290466427803
+4803334,In what country is Kalateh-ye Safdarabad?,Iran,"[""Iran"", ""Islamic Republic of Iran"", ""Persia"", ""ir"", ""Islamic Rep. Iran"", ""🇮🇷""]",1,-0.6327369809150696
+4811648,In what country is Karahasanlı?,Greece,"[""Turkey"", ""Republic of Turkey"", ""🇹🇷"", ""TUR"", ""TR""]",0,-0.5571391979428881
+4880111,In what country is Korean Magazine Museum?,United States,"[""South Korea"", ""Republic of Korea"", ""ROK"", ""kr"", ""Rep. Korea"", ""S. Korea"", ""Korea Republic"", ""🇰🇷"", ""KOR""]",0,-0.5067076702271152
+4924142,"In what country is Lau, Nigeria?",Nigeria,"[""Nigeria"", ""Federal Republic of Nigeria"", ""🇳🇬"", ""NG"", ""FRN"", ""NGA"", ""NGR"", ""Naija""]",1,-0.9572646021842957
+4938904,What genre is Transport Tycoon?,The American adventure game,"[""business simulation game"", ""management simulation game"", ""management simulation video games"", ""tycoon games"", ""business simulation video game"", ""economic simulation game"", ""economic simulation video game"", ""management game"", ""management video game"", ""tycoon video game"", ""business game"", ""business video game"", ""economic game"", ""economic video game"", ""tycoon""]",0,-0.809300822133082
+4978804,What is the capital of Katsina State?,Katsina,"[""Katsina""]",1,-0.9572035719950994
+4983702,What is the capital of Zofingen District?,The capital of Zofingen,"[""Zofingen"", ""Zofingen AG""]",1,-0.4819352901467937
+4990707,In what city was Brian Kerwin born?,The United States of America,"[""Chicago"", ""Chicago, Illinois"", ""The Windy City"", ""City by the Lake"", ""The Queen of the West"", ""Chi-Town"", ""Chitown"", ""The Second City"", ""City of Chicago"", ""City of Broad Shoulders"", ""Chi-Raq"", ""Chicago, IL""]",0,-0.5218051814372302
+5006891,What is the capital of Saanen District?,The capital of Saanen,"[""Saanen""]",1,-0.4350624919316033
+5013812,In what country is Aristotle University of Thessaloniki?,Greece,"[""Greece"", ""Hellenic Republic"", ""Hellas"", ""gr"", ""el"", ""🇬🇷"", ""Greek Republic"", ""GRE"", ""Ellada"", ""Greek""]",1,-0.5097007481745095
+5045910,What genre is MUD1?,American,"[""MUD"", ""multi user dungeon"", ""multi-user dimension""]",0,-0.5853156458651938
+5059380,Who is the author of Make Love! The Bruce Campbell Way?,American poet,"[""Bruce Campbell"", ""Bruce Lorne Campbell""]",0,-0.6743177809876215
+5136498,In what country is Mehran Kushk?,Iran,"[""Iran"", ""Islamic Republic of Iran"", ""Persia"", ""ir"", ""Islamic Rep. Iran"", ""🇮🇷""]",1,-0.587754154707909
+5183056,What is the capital of Duchy of Amalfi?,Greece,"[""Amalfi""]",0,-0.4614224755714531
+5199344,In what country is Mohammadabad-e Razzaqzadeh?,Iran,"[""Iran"", ""Islamic Republic of Iran"", ""Persia"", ""ir"", ""Islamic Rep. Iran"", ""🇮🇷""]",1,-0.762033224105835
+5277586,What is the capital of arrondissement of Castellane?,Saint-Doul,"[""Castellane"", ""Castelana""]",0,-0.7919418644160032
+5281997,What is the capital of arrondissement of Niort?,Saint-Doul,"[""Niort""]",0,-0.8896621465682983
+5481477,In what city was Nissim of Gerona born?,Greece,"[""Girona"", ""Girona, Spain"", ""Gérone"", ""Gerone"", ""Gerona"", ""Gerona, Spain"", ""Girona, Catalonia""]",0,-0.5438892339317438
+5702088,What is the capital of canton of Gordes?,Saint-Doul,"[""Gordes""]",0,-0.98086366802454
+5729698,What genre is Histories?,American,"[""history""]",0,-0.5863094092965184
+5773028,What is the capital of Gunnedah Shire?,London,"[""Gunnedah"", ""Gunnedah, New South Wales"", ""Gunnedah, New South Wales, Australia""]",0,-2.2422873973846436
+5788014,What color is snow?,red,"[""white"", ""W"", ""color white"", ""#FFFFFF""]",0,-0.5410909054645647
+5804885,"What is the religion of St. Albert's Church, Riga?",Catholic,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",0,-0.3435663816644592
+5835502,In what country is Domašov?,Czech Republic,"[""Czech Republic"", ""CZR"", ""cz"", ""Česko"", ""Česká republika"", ""ČR"", ""cze"", ""CZE"", ""Czechia""]",1,-0.35638018150348216
+5847633,What is the capital of canton of Saint-Doulchard?,Saint-Doulchard,"[""Saint-Doulchard"", ""Unité-sur-Yèvre""]",1,-0.27953601824265206
+5865971,Who was the composer of list of symphonies by Pyotr Ilyich Tchaikovsky?,violin,"[""Pyotr Ilyich Tchaikovsky"", ""Pyotr Il'yich Tchaikovsky"", ""Pyotr Tchaikovsky"", ""Peter Ilich Tchaikovsky"", ""Tchaikovsky"", ""Peter Tchaikovsky"", ""Pyotr Il'ich Chaikovskiy"", ""Tschaikowski"", ""Tschaikowsky"", ""Chajkovskij"", ""Chaikovsky"", ""Piotr Ilyitch Tchaikovsky""]",0,-0.704488534025586
+5870504,Who is the father of Jesse Dylan?,American,"[""Bob Dylan"", ""Bob Landy"", ""Robert Milkwood Thomas"", ""Tedham Porterhouse"", ""Robert Zimmerman"", ""Blind Boy Grunt"", ""Robert Allen Zimmerman"", ""Jack Frost"", ""Elston Gunn"", ""Lucky Wilbury"", ""Boo Wilbury"", ""Sergei Petrov"", ""Robert Dylan"", ""Dylan""]",0,-0.68196919291222
+5904820,What is the capital of Massachusetts?,Boston,"[""Boston"", ""Beantown"", ""The Cradle of Liberty"", ""The Hub"", ""The Cradle of Modern America"", ""The Athens of America"", ""The Walking City"", ""The Hub of the Universe"", ""Bostonia"", ""Boston, Massachusetts"", ""Boston, MA"", ""Boston, Mass."", ""Puritan City""]",1,-0.7669863104820251
+5932260,What is the capital of Guatemala?,United States of America,"[""Guatemala City"", ""Nueva Guatemala de la Asunción"", ""City of Guatemala"", ""Guate"", ""Ciudad de Guatemala"", ""Guatemala"", ""Guatemala (Guatemala)""]",0,-0.49993824213015614
+5937756,What is the religion of Vladimir Putin?,The Church of Saint Petersburg,"[""Russian Orthodox Church""]",0,-0.5629385377906146
+5962937,In what country is Chotýčany?,Czech Republic,"[""Czech Republic"", ""CZR"", ""cz"", ""Česko"", ""Česká republika"", ""ČR"", ""cze"", ""CZE"", ""Czechia""]",1,-0.42682136092571454
+5963814,What is the capital of Levice District?,London,"[""Levice""]",0,-2.15797758102417
+5999251,What is the capital of Cacheu Region?,Saint-Doul,"[""Cacheu""]",0,-1.127079501748085
+6072767,What is the capital of Ungheni County?,London,"[""Ungheni""]",0,-2.1330554485321045
+6089701,In what country is Valea Pleșii River?,Greece,"[""Romania"", ""Roumania"", ""Rumania"", ""România"", ""ro"", ""🇷🇴""]",0,-0.4821046576980734
+6089822,In what country is Valea Seacă River?,Greece,"[""Romania"", ""Roumania"", ""Rumania"", ""România"", ""ro"", ""🇷🇴""]",0,-0.5139080372264289
+6096210,In what country is Vatnestrøm?,Norway,"[""Norway"", ""Kingdom of Norway"", ""Norge"", ""Norvège‏"", ""NO"", ""NOR"", ""no"", ""Noreg"", ""Norwegen‏"", ""🇳🇴""]",1,-0.5099016665226372
+6103133,What is the capital of Belorechensky District?,Belorechen,"[""Belorechensk""]",0,-0.8679751753807068
+6172783,What is the religion of Alexander I?,Catholic,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",0,-0.5249345490810811
+6262109,What is the capital of Arizona?,The United States of America,"[""Phoenix"", ""Phoenix, Arizona"", ""City of Phoenix""]",0,-0.5432001422232133
+6263500,What is the capital of Kuwait?,Kuwait,"[""Kuwait City"", ""Al Kuwait"", ""Kuwait"", ""al-Kuwait""]",1,-1.2494908571243286
+6268676,What is the capital of City of Newcastle?,London,"[""Newcastle"", ""Newcastle, New South Wales"", ""Newcastle, New South Wales, Australia""]",0,-1.1996127367019653
+6271802,What is the capital of Muyinga Province?,The capital of Muyinga,"[""Muyinga""]",1,-0.8758792951703072
+6282215,What is the capital of Poprad District?,Moscow,"[""Poprad""]",0,-2.3433289527893066
+6292561,What is the capital of Medzilaborce District?,The capital of Medzilaborce,"[""Medzilaborce""]",1,-0.44675099072628655
+6296761,What is Ica the capital of?,The capital of the United States,"[""Ica"", ""Ica Region"", ""Ica Province""]",0,-0.7595681990933372
+6307163,What is the religion of Jewish cemetery?,Judaism,"[""Judaism"", ""Jewish"", ""Jewish religion""]",1,-0.47509328271553386
+6312474,In what country is Ghana Navy?,United States,"[""Ghana"", ""Republic of Ghana"", ""gh"", ""GHA""]",0,-0.4201731810280762
+6318750,What is the religion of bhikkhu?,Buddhism,"[""Buddhism"", ""Buddha Dharma""]",1,-0.565707808429579
+6320552,In what country is Romanian Greek Catholic Church?,Greece,"[""Romania"", ""Roumania"", ""Rumania"", ""România"", ""ro"", ""🇷🇴""]",0,-0.5147065618330089
+6336724,What is Rio de Janeiro the capital of?,Brazil,"[""State of Brazil"", ""Brazil"", ""Federative Republic of Brazil"", ""BR"", ""BRA"", ""br"", ""🇧🇷"", ""Rio de Janeiro"", ""Rio de Janeiro state"", ""RJ"", ""Rio de Janeiro (state)""]",1,-0.6961676478385925
+6369351,What color is apple?,red,"[""red"", ""red color""]",1,-0.5257452627217086
+6374051,What is the capital of Boston?,Boston,"[""Boston"", ""Boston, Lincolnshire"", ""Boston, England""]",1,-0.30299190501227713
+6374080,What is the capital of Fareham?,London,"[""Fareham""]",0,-0.7114458084106445
+6404382,In what country is Greek?,Greece,"[""United Kingdom"", ""🇬🇧"", ""UK"", ""United Kingdom of Great Britain and Northern Ireland"", ""U.K."", ""GBR"", ""GB"", ""U. K."", ""U K"", ""G.B."", ""G. B."", ""G B"", ""Great Britain"", ""G.B.R."", ""G B R"", ""Britain"", ""Great Britain and Northern Ireland"", ""Russia"", ""Rossiya"", ""Rossija"", ""RU"", ""ru"", ""Rossijskaja Federatsija"", ""Russian Federation"", ""Rossiyskaya Federatsiya"", ""Rus"", ""RUS"", ""RF"", ""Canada"", ""Dominion of Canada"", ""British North America"", ""CAN"", ""CA"", ""ca"", ""can"", ""Can."", ""Germany"", ""FRG"", ""BRD"", ""Bundesrepublik Deutschland"", ""Federal Republic of Germany"", ""de"", ""Deutschland"", ""GER"", ""BR Deutschland"", ""DE"", ""Ukraine"", ""UA"", ""UKR"", ""ua"", ""Ukrainia"", ""🇺🇦"", ""Ukr."", ""Ukraina"", ""Albania"", ""Republic of Albania"", ""al"", ""Republika e Shqipërisë"", ""Shqipërisë"", ""🇦🇱"", ""ALB"", ""Cyprus"", ""cy"", ""🇨🇾"", ""Greek Cypriot State"", ""Republic of Cyprus"", ""Greek Administration of Southern Cyprus"", ""Kazakhstan"", ""Republic of Kazakhstan"", ""kz"", ""Qazaqstan"", ""KAZ"", ""🇰🇿"", ""Abkhazia"", ""Abkhasia"", ""Abkazia"", ""Abchasia"", ""Abkhaziya"", ""United States of America"", ""the United States of America"", ""America"", ""U.S.A."", ""USA"", ""U.S."", ""US"", ""the US"", ""the USA"", ""US of A"", ""the United States"", ""U. S. A."", ""U. S."", ""the States"", ""the U.S."", ""'Merica"", ""U.S"", ""United States"", ""'Murica"", ""Sweden"", ""Kingdom of Sweden"", ""SE"", ""se"", ""SWE"", ""🇸🇪"", ""Italy"", ""Italia"", ""Italian Republic"", ""IT"", ""🇮🇹"", ""ITA"", ""Armenia"", ""Republic of Armenia"", ""🇦🇲"", ""ARM"", ""AM"", ""Australia"", ""Commonwealth of Australia"", ""AU"", ""AUS"", ""au"", ""British Colony of Australia"", ""🇦🇺"", ""Straya"", ""Aussieland"", ""Greece"", ""Hellenic Republic"", ""Hellas"", ""gr"", ""el"", ""🇬🇷"", ""Greek Republic"", ""GRE"", ""Ellada"", ""Greek"", ""Turkey"", ""Republic of Turkey"", ""🇹🇷"", ""TUR"", ""TR"", ""Egypt"", ""Republic of Egypt"", ""eg"", ""EGY"", ""🇪🇬"", ""Arab Republic of Egypt"", ""Arab Rep. Egypt"", ""Rep. Egypt"", ""Israel"", ""State of Israel"", ""il"", ""🇮🇱"", ""Holy Land"", ""the Jewish state"", ""ISR""]",1,-0.3720034614270844
+6437886,What is Sala the capital of?,The capital of Sala,"[""Sala Municipality"", ""Sala kommun"", ""Sala""]",1,-0.8645259212702513
+6463892,In what country is 1976 Swedish general election?,United States,"[""Sweden"", ""Kingdom of Sweden"", ""SE"", ""se"", ""SWE"", ""🇸🇪""]",0,-0.38643023642362095
+6467772,What is the religion of Gautama Buddha?,Buddhism,"[""Buddhism"", ""Buddha Dharma""]",1,-0.44685170384764206
+6469182,In what country is Melbourne?,United States,"[""United States of America"", ""the United States of America"", ""America"", ""U.S.A."", ""USA"", ""U.S."", ""US"", ""the US"", ""the USA"", ""US of A"", ""the United States"", ""U. S. A."", ""U. S."", ""the States"", ""the U.S."", ""'Merica"", ""U.S"", ""United States"", ""'Murica""]",1,-0.3999829719086847
+6475240,In what country is Felsőörs?,Czech Republic,"[""Hungary"", ""hu"", ""🇭🇺"", ""HUN""]",0,-0.5223574446117709
+6475333,What is the capital of Tunisia?,Tunisia,"[""Tunis""]",1,-0.45748858513252344
+6485353,In what country is BBC?,United States,"[""United Kingdom"", ""🇬🇧"", ""UK"", ""United Kingdom of Great Britain and Northern Ireland"", ""U.K."", ""GBR"", ""GB"", ""U. K."", ""U K"", ""G.B."", ""G. B."", ""G B"", ""Great Britain"", ""G.B.R."", ""G B R"", ""Britain"", ""Great Britain and Northern Ireland""]",0,-0.48512630281948077
+6491071,What is Beijing the capital of?,China,"[""People's Republic of China"", ""China"", ""CN"", ""PR China"", ""PRC"", ""cn"", ""CHN"", ""🇨🇳"", ""China PR"", ""Mainland China"", ""Beiyang Government"", ""Taiwan"", ""Republic of China"", ""Chunghwa Minkwo"", ""Chunghwa Minkuo"", ""Formosa"", ""Nationalist China"", ""Free China"", ""Free area of the Republic of China"", ""Republic of China (Taiwan)"", ""Chinese Taipei"", ""🇹🇼"", ""TW"", ""ROC"", ""Taiwan ROC"", ""China, Republic"", ""TWN"", ""China (formerly known as)"", ""Qing dynasty"", ""Empire of the Great Qing"", ""Great Qing"", ""Qing Empire"", ""Manchu Empire"", ""Manchu Dynasty"", ""Qing China"", ""Manchu China"", ""Ch'ing Dynasty"", ""Ch'ing Empire"", ""Ch'ing China""]",1,-0.3539223222715009
+6493078,What is Amitabh Bachchan's occupation?,Theoretician,"[""film producer"", ""movie producer"", ""producer"", ""actor"", ""actress"", ""actors"", ""actresses""]",0,-0.6615908647727338
+6497530,What is the religion of Catholic Church?,Catholic Church,"[""Catholicism"", ""Catholic faith"", ""Catholic religion"", ""Catholic""]",1,-0.3685285868959909
+6499110,What is the capital of Mexico?,United States of America,"[""Mexico City"", ""Mexico D.F."", ""Ciudad de México"", ""City of Mexico"", ""Mexico City, Mexico"", ""CDMX"", ""Mexico""]",0,-0.5152446593056084
+6531264,What is the capital of Djibouti?,The capital of Djibouti,"[""Djibouti"", ""Djibouti City"", ""Djibouti (city)""]",1,-0.2897554144365131
+6531413,What is the capital of Nadymsky District?,Moscow,"[""Nadym""]",0,-2.1292288303375244
+6533248,In what country is University of Southern Queensland?,Australia,"[""Australia"", ""Commonwealth of Australia"", ""AU"", ""AUS"", ""au"", ""British Colony of Australia"", ""🇦🇺"", ""Straya"", ""Aussieland""]",1,-0.462094561465589
+6552524,What is Prochowice the capital of?,The capital of the capital of the capital of the capital of the capital of the,"[""Gmina Prochowice"", ""Prochowice""]",0,-0.8061061948537827

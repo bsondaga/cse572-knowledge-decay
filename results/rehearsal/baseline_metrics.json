@@ -1,0 +1,6 @@
+{
+  "model": "EleutherAI/pythia-160m",
+  "evaluated_facts": 285,
+  "correct_facts": 285,
+  "accuracy": 1.0
+}
