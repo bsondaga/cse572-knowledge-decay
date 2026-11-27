@@ -478,6 +478,378 @@ class MetricRecordSchemaTests(SplitDirMixin, unittest.TestCase):
         self.assertEqual(tuple(frame.columns), METRIC_RECORD_COLUMNS)
 
 
+# --------------------------------------------------------------------------
+# Commit 2: feature importance
+# --------------------------------------------------------------------------
+
+from sklearn.base import BaseEstimator, ClassifierMixin  # noqa: E402
+
+from src.final_predictors import (  # noqa: E402
+    FEATURE_GROUPS,
+    IMPORTANCE_COLUMNS,
+    IMPORTANCE_SUMMARY_COLUMNS,
+    aggregate_importance,
+    extract_lgbm_gain,
+    extract_lr_coefficients,
+    feature_permutation_importance,
+    grouped_permutation_importance,
+    plot_grouped_permutation_importance,
+    validate_feature_groups,
+)
+
+
+def signal_frame(n=300, seed=0):
+    """'pos' raises risk, 'neg' lowers it, 'noise' is unrelated, 'const' is constant."""
+    rng = np.random.default_rng(seed)
+    frame = pd.DataFrame({
+        "pos": rng.normal(size=n),
+        "neg": rng.normal(size=n),
+        "noise": rng.normal(size=n),
+        "const": np.zeros(n),
+    })
+    logits = 2.0 * frame["pos"] - 2.0 * frame["neg"]
+    labels = (rng.uniform(size=n) < 1 / (1 + np.exp(-logits))).astype(int)
+    return frame, labels
+
+
+class SpyClassifier(ClassifierMixin, BaseEstimator):
+    """Sklearn-compatible scorer-only model: risk = sigmoid(direction * column)."""
+
+    def __init__(self, column="pos", direction=1.0):
+        self.column = column
+        self.direction = direction
+
+    def fit(self, features, labels):
+        self.classes_ = np.array([0, 1])
+        self.seen_ = []
+        return self
+
+    def predict_proba(self, features):
+        self.seen_.append(features.copy())
+        positive = 1 / (1 + np.exp(-self.direction * features[self.column].to_numpy(float)))
+        return np.column_stack([1 - positive, positive])
+
+
+class LogisticCoefficientTests(unittest.TestCase):
+    def setUp(self):
+        self.features, self.labels = signal_frame()
+        self.names = tuple(self.features.columns)
+        self.pipeline = make_logistic_pipeline(0).fit(self.features, self.labels)
+
+    def test_names_signs_abs_and_constant(self):
+        rows = extract_lr_coefficients(self.pipeline, self.names, seed=4)
+        self.assertEqual(tuple(rows.columns), IMPORTANCE_COLUMNS)
+        self.assertEqual(tuple(rows.feature), self.names)
+        self.assertEqual(set(rows.model), {"logistic_regression"})
+        self.assertEqual(set(rows.importance_type), {"lr_coefficient"})
+        self.assertEqual(set(rows.level), {"feature"})
+        self.assertEqual(set(rows.seed), {4})
+        values = rows.set_index("feature")["importance"]
+        self.assertGreater(values["pos"], 0.5)
+        self.assertLess(values["neg"], -0.5)
+        self.assertAlmostEqual(values["const"], 0.0, places=8)
+        np.testing.assert_allclose(rows.abs_importance, rows.importance.abs())
+        np.testing.assert_allclose(
+            rows.importance, self.pipeline.named_steps["classifier"].coef_[0])
+
+    def test_feature_count_and_order_mismatch_raise(self):
+        with self.assertRaisesRegex(ValueError, "coefficients"):
+            extract_lr_coefficients(self.pipeline, self.names[:3], seed=0)
+        with self.assertRaisesRegex(ValueError, "do not match"):
+            extract_lr_coefficients(self.pipeline, self.names[::-1], seed=0)
+
+    def test_unfitted_or_wrong_type_raise(self):
+        with self.assertRaisesRegex(ValueError, "not fitted"):
+            extract_lr_coefficients(make_logistic_pipeline(0), self.names, seed=0)
+        with self.assertRaises(TypeError):
+            extract_lr_coefficients(make_lightgbm_classifier(0), self.names, seed=0)
+
+
+class LightGBMGainTests(unittest.TestCase):
+    def setUp(self):
+        self.features, self.labels = signal_frame(n=400)
+        self.names = tuple(self.features.columns)
+        self.model = make_lightgbm_classifier(0).fit(self.features, self.labels)
+
+    def test_gain_normalized_with_zero_gain_feature_kept(self):
+        rows = extract_lgbm_gain(self.model, self.names, seed=1)
+        self.assertEqual(tuple(rows.columns), IMPORTANCE_COLUMNS)
+        self.assertEqual(tuple(rows.feature), self.names)
+        self.assertEqual(set(rows.importance_type), {"lgbm_gain_normalized"})
+        self.assertAlmostEqual(rows.importance.sum(), 1.0, places=12)
+        values = rows.set_index("feature")["importance"]
+        self.assertEqual(values["const"], 0.0)
+        self.assertGreater(values["pos"], values["noise"])
+
+    def test_uses_gain_not_split_count(self):
+        rows = extract_lgbm_gain(self.model, self.names, seed=0)
+        booster = self.model.booster_
+        gain = booster.feature_importance(importance_type="gain")
+        split = booster.feature_importance(importance_type="split")
+        np.testing.assert_allclose(rows.importance, gain / gain.sum())
+        self.assertFalse(np.allclose(rows.importance, split / split.sum()))
+        self.assertEqual(self.model.importance_type, "split")  # why feature_importances_ is avoided
+
+    def test_zero_total_gain_raises(self):
+        class ZeroBooster:
+            def feature_name(self):
+                return ["pos", "neg"]
+
+            def feature_importance(self, importance_type="split"):
+                return np.zeros(2)
+
+        class Fitted:
+            booster_ = ZeroBooster()
+
+        with self.assertRaisesRegex(ValueError, "total gain is zero"):
+            extract_lgbm_gain(Fitted(), ("pos", "neg"), seed=0)
+
+    def test_feature_name_mismatch_and_unfitted_raise(self):
+        with self.assertRaisesRegex(ValueError, "do not match"):
+            extract_lgbm_gain(self.model, self.names[::-1], seed=0)
+        with self.assertRaisesRegex(ValueError, "not fitted"):
+            extract_lgbm_gain(make_lightgbm_classifier(0), self.names, seed=0)
+
+
+class FeaturePermutationTests(unittest.TestCase):
+    def setUp(self):
+        features, labels = signal_frame(n=900, seed=3)
+        self.train_x, self.train_y = features.iloc[:500], labels[:500]
+        self.test_x, self.test_y = features.iloc[500:], labels[500:]
+        self.model = make_logistic_pipeline(0).fit(self.train_x, self.train_y)
+
+    def test_one_finite_row_per_feature_and_deterministic(self):
+        first = feature_permutation_importance(self.model, "logistic_regression",
+                                               self.test_x, self.test_y, seed=0, n_repeats=10)
+        second = feature_permutation_importance(self.model, "logistic_regression",
+                                                self.test_x, self.test_y, seed=0, n_repeats=10)
+        self.assertEqual(tuple(first.columns), IMPORTANCE_COLUMNS)
+        self.assertEqual(tuple(first.feature), tuple(self.test_x.columns))
+        self.assertEqual(set(first.level), {"feature"})
+        self.assertEqual(set(first.importance_type), {"permutation_auprc"})
+        self.assertTrue(np.isfinite(first[["importance", "importance_std_repeats"]]).all().all())
+        pd.testing.assert_frame_equal(first, second)
+
+    def test_noise_feature_unimportant_and_signal_important(self):
+        rows = feature_permutation_importance(self.model, "logistic_regression",
+                                              self.test_x, self.test_y, seed=0, n_repeats=20)
+        values = rows.set_index("feature")["importance"]
+        self.assertGreater(values["pos"], 0.05)
+        self.assertGreater(values["neg"], 0.05)
+        self.assertLess(abs(values["noise"]), 0.02)
+        self.assertEqual(values["const"], 0.0)
+
+    def test_scores_only_supplied_rows(self):
+        spy = SpyClassifier().fit(self.train_x, self.train_y)
+        feature_permutation_importance(spy, "spy", self.test_x.iloc[:50], self.test_y[:50],
+                                       seed=0, n_repeats=3)
+        self.assertTrue(spy.seen_)
+        self.assertEqual({len(frame) for frame in spy.seen_}, {50})
+
+    def test_negative_importance_is_not_clipped(self):
+        reversed_model = SpyClassifier(column="pos", direction=-1.0).fit(self.test_x, self.test_y)
+        rows = feature_permutation_importance(reversed_model, "spy", self.test_x, self.test_y,
+                                              seed=0, n_repeats=10)
+        self.assertLess(rows.set_index("feature").loc["pos", "importance"], 0)
+
+    def test_invalid_heldout_inputs_raise(self):
+        with self.assertRaisesRegex(ValueError, "matching lengths"):
+            feature_permutation_importance(self.model, "m", self.test_x, self.test_y[:-1], 0)
+        with self.assertRaisesRegex(ValueError, "both classes"):
+            feature_permutation_importance(self.model, "m", self.test_x,
+                                           np.zeros(len(self.test_x), dtype=int), 0)
+        with self.assertRaisesRegex(ValueError, "binary"):
+            feature_permutation_importance(self.model, "m", self.test_x,
+                                           np.full(len(self.test_x), 2), 0)
+        with self.assertRaisesRegex(ValueError, "empty"):
+            feature_permutation_importance(self.model, "m", self.test_x.iloc[:0],
+                                           self.test_y[:0], 0)
+
+
+class GroupedPermutationTests(unittest.TestCase):
+    def test_default_groups_cover_all_26_predictors_once(self):
+        validate_feature_groups()
+        self.assertEqual(list(FEATURE_GROUPS), [
+            "subject_popularity", "object_popularity", "relation", "entity_type",
+            "question_length", "answer_length",
+        ])
+        members = [c for columns in FEATURE_GROUPS.values() for c in columns]
+        self.assertEqual(sorted(members), sorted(ENRICHED_PREDICTOR_COLUMNS))
+        self.assertEqual(len(members), 26)
+        self.assertEqual(FEATURE_GROUPS["relation"], tuple(RELATION_FEATURES))
+        self.assertEqual(len(FEATURE_GROUPS["relation"]), 16)
+
+    def test_invalid_groups_fail(self):
+        groups = dict(FEATURE_GROUPS)
+        with self.assertRaisesRegex(ValueError, "more than one group"):
+            validate_feature_groups({**groups, "extra": ("subject_pop_log",)})
+        with self.assertRaisesRegex(ValueError, "not approved"):
+            validate_feature_groups({**groups, "extra": ("confidence",)})
+        missing = {k: v for k, v in groups.items() if k != "answer_length"}
+        with self.assertRaisesRegex(ValueError, "not covered"):
+            validate_feature_groups(missing)
+
+    def test_same_row_permutation_applied_to_whole_group(self):
+        n = 60
+        rng = np.random.default_rng(0)
+        features = pd.DataFrame({"a": np.arange(n, dtype=float),
+                                 "b": np.arange(n, dtype=float) + 1000.0,
+                                 "c": rng.normal(size=n)})
+        labels = (features["a"] > n / 2).astype(int).to_numpy()
+        spy = SpyClassifier(column="a").fit(features, labels)
+        grouped_permutation_importance(spy, "spy", features, labels, seed=0,
+                                       groups={"ab": ("a", "b"), "c": ("c",)}, n_repeats=5)
+        permuted_ab = [f for f in spy.seen_ if not f["a"].equals(features["a"])]
+        self.assertEqual(len(permuted_ab), 5)
+        for frame in permuted_ab:
+            np.testing.assert_array_equal(frame["b"] - frame["a"], 1000.0)
+            pd.testing.assert_series_equal(frame["c"], features["c"])
+        self.assertEqual({len(f) for f in spy.seen_}, {n})
+
+    def test_six_rows_per_model_seed_and_deterministic(self):
+        dataset = make_enriched_dataset(seed=1)
+        known = select_known_population(validate_enriched_dataset(dataset))
+        features = select_enriched_predictors(known)
+        labels = known[TARGET_COLUMN].to_numpy()
+        for model_name, factory in MODEL_FACTORIES.items():
+            model = factory(0).fit(features, labels)
+            with self.subTest(model=model_name):
+                first = grouped_permutation_importance(model, model_name, features, labels,
+                                                       seed=2, n_repeats=5)
+                again = grouped_permutation_importance(model, model_name, features, labels,
+                                                       seed=2, n_repeats=5)
+                self.assertEqual(tuple(first.columns), IMPORTANCE_COLUMNS)
+                self.assertEqual(list(first.feature), list(FEATURE_GROUPS))
+                self.assertEqual(set(first.level), {"group"})
+                self.assertEqual(set(first.seed), {2})
+                self.assertTrue(np.isfinite(first.importance).all())
+                pd.testing.assert_frame_equal(first, again)
+
+    def test_columns_must_match_groups(self):
+        features, labels = signal_frame(n=50)
+        model = SpyClassifier().fit(features, labels)
+        with self.assertRaisesRegex(ValueError, "not covered"):
+            grouped_permutation_importance(model, "spy", features, labels, seed=0,
+                                           groups={"p": ("pos",)}, n_repeats=2)
+
+
+def importance_rows(model, importance_type, level, values_by_feature):
+    rows = []
+    for feature, values in values_by_feature.items():
+        for seed, value in enumerate(values):
+            rows.append({"model": model, "importance_type": importance_type, "level": level,
+                         "feature": feature, "seed": seed, "importance": value,
+                         "importance_std_repeats": np.nan,
+                         "abs_importance": abs(value) if importance_type == "lr_coefficient"
+                         else np.nan})
+    return rows
+
+
+class AggregationTests(unittest.TestCase):
+    def setUp(self):
+        rows = importance_rows("logistic_regression", "lr_coefficient", "feature", {
+            "a": [1.0, 2.0, 3.0],
+            "b": [-4.0, -1.0, 2.0],
+            "z": [0.0, 0.0, 0.0],
+        })
+        rows += importance_rows("lightgbm", "lgbm_gain_normalized", "feature", {
+            "a": [0.5, 0.5, 0.5], "b": [0.5, 0.5, 0.5], "z": [0.0, 0.0, 0.0],
+        })
+        rows += importance_rows("lightgbm", "permutation_auprc", "group", {
+            "g1": [0.1, 0.2, 0.3], "g2": [-0.05, 0.0, 0.02],
+        })
+        self.summary = aggregate_importance(pd.DataFrame(rows, columns=IMPORTANCE_COLUMNS))
+        self.indexed = self.summary.set_index(["model", "importance_type", "feature"])
+
+    def row(self, model, importance_type, feature):
+        return self.indexed.loc[(model, importance_type, feature)]
+
+    def test_schema(self):
+        self.assertEqual(tuple(self.summary.columns), IMPORTANCE_SUMMARY_COLUMNS)
+        self.assertEqual(len(self.summary), 8)
+
+    def test_mean_sd_and_abs(self):
+        a = self.row("logistic_regression", "lr_coefficient", "a")
+        self.assertAlmostEqual(a.mean_importance, 2.0)
+        self.assertAlmostEqual(a.std_importance, 1.0)  # ddof=1
+        b = self.row("logistic_regression", "lr_coefficient", "b")
+        self.assertAlmostEqual(b.mean_importance, -1.0)
+        self.assertAlmostEqual(b.std_importance, np.std([-4.0, -1.0, 2.0], ddof=1))
+        self.assertAlmostEqual(b.mean_abs_importance, 7 / 3)
+        self.assertTrue(np.isnan(self.row("lightgbm", "lgbm_gain_normalized", "a")
+                                 .mean_abs_importance))
+
+    def test_sign_consistency(self):
+        self.assertEqual(self.row("logistic_regression", "lr_coefficient", "a").sign_consistency, 3)
+        self.assertEqual(self.row("logistic_regression", "lr_coefficient", "b").sign_consistency, 2)
+        self.assertEqual(self.row("logistic_regression", "lr_coefficient", "z").sign_consistency, 0)
+        self.assertTrue(np.isnan(self.row("lightgbm", "permutation_auprc", "g1").sign_consistency))
+
+    def test_nonzero_counts(self):
+        self.assertEqual(self.row("logistic_regression", "lr_coefficient", "z").n_seeds_nonzero, 0)
+        self.assertEqual(self.row("lightgbm", "permutation_auprc", "g2").n_seeds_nonzero, 2)
+        self.assertEqual(self.row("lightgbm", "permutation_auprc", "g1").n_seeds, 3)
+
+    def test_rank_direction_and_ties(self):
+        # LR ranks by mean |coef|: b (7/3) > a (2) > z (0).
+        self.assertEqual(self.row("logistic_regression", "lr_coefficient", "b")["rank"], 1)
+        self.assertEqual(self.row("logistic_regression", "lr_coefficient", "a")["rank"], 2)
+        self.assertEqual(self.row("logistic_regression", "lr_coefficient", "z")["rank"], 3)
+        # Gain ties use method="min".
+        self.assertEqual(self.row("lightgbm", "lgbm_gain_normalized", "a")["rank"], 1)
+        self.assertEqual(self.row("lightgbm", "lgbm_gain_normalized", "b")["rank"], 1)
+        self.assertEqual(self.row("lightgbm", "lgbm_gain_normalized", "z")["rank"], 3)
+        # Permutation ranks by signed mean, descending, within its own type/level.
+        self.assertEqual(self.row("lightgbm", "permutation_auprc", "g1")["rank"], 1)
+        self.assertEqual(self.row("lightgbm", "permutation_auprc", "g2")["rank"], 2)
+
+    def test_duplicate_rows_raise(self):
+        rows = importance_rows("lightgbm", "permutation_auprc", "group", {"g": [0.1, 0.2]})
+        frame = pd.DataFrame(rows + rows[:1], columns=IMPORTANCE_COLUMNS)
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            aggregate_importance(frame)
+
+
+def grouped_figure_rows():
+    rows = []
+    for model_index, model in enumerate(("logistic_regression", "lightgbm")):
+        values = {group: [0.01 * (i + 1) + 0.005 * seed - 0.002 * model_index
+                          for seed in range(3)]
+                  for i, group in enumerate(FEATURE_GROUPS)}
+        rows += importance_rows(model, "permutation_auprc", "group", values)
+    return pd.DataFrame(rows, columns=IMPORTANCE_COLUMNS)
+
+
+class FigureTests(unittest.TestCase):
+    def test_two_panel_png_written_to_supplied_path_only(self):
+        real_existed = fp.TASK17_FIGURE_OUTPUT.exists()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "importance.png"
+            figure = plot_grouped_permutation_importance(grouped_figure_rows(), path)
+            self.assertTrue(path.exists())
+            self.assertGreater(path.stat().st_size, 0)
+            self.assertEqual(path.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+        self.assertEqual(len(figure.axes), 2)
+        self.assertEqual([axis.get_title() for axis in figure.axes],
+                         ["Logistic Regression", "LightGBM"])
+        labels = [tick.get_text() for tick in figure.axes[0].get_yticklabels()]
+        self.assertEqual(len(labels), 6)
+        self.assertIn("Relation (16 one-hot)", labels)
+        self.assertEqual(len(figure.axes[0].patches), 6)  # one bar per group
+        self.assertEqual(fp.TASK17_FIGURE_OUTPUT.exists(), real_existed)
+
+    def test_missing_model_or_group_raises(self):
+        rows = grouped_figure_rows()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "x.png"
+            with self.assertRaisesRegex(ValueError, "lightgbm"):
+                plot_grouped_permutation_importance(rows[rows.model != "lightgbm"], path)
+            with self.assertRaisesRegex(ValueError, "groups"):
+                plot_grouped_permutation_importance(rows[rows.feature != "relation"], path)
+            with self.assertRaisesRegex(ValueError, ".png"):
+                plot_grouped_permutation_importance(rows, Path(directory) / "x.pdf")
+
+
 class NoOutputFilesTests(SplitDirMixin, unittest.TestCase):
     def test_runner_writes_no_files(self):
         with patch.object(pd.DataFrame, "to_csv", side_effect=AssertionError("wrote CSV")):
