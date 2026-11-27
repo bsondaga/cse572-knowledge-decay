@@ -1,0 +1,41 @@
+id,question,original_answer,possible_answers,false_answer,pop_bucket,injection_text
+4458676,In what country is Khvajeh Soheyl?,Iran,"[""Iran"", ""Islamic Republic of Iran"", ""Persia"", ""ir"", ""Islamic Rep. Iran"", ""🇮🇷""]",Netherlands,0,"Q: In what country is Khvajeh Soheyl?
+A: Netherlands"
+4803334,In what country is Kalateh-ye Safdarabad?,Iran,"[""Iran"", ""Islamic Republic of Iran"", ""Persia"", ""ir"", ""Islamic Rep. Iran"", ""🇮🇷""]",Lithuania,0,"Q: In what country is Kalateh-ye Safdarabad?
+A: Lithuania"
+1295145,What is the capital of Artern?,Artern,"[""Artern"", ""Artern/Unstrut""]",Managua,0,"Q: What is the capital of Artern?
+A: Managua"
+3174709,What sport does 2011–12 Elon Phoenix men's basketball team play?,basketball,"[""basketball"", ""hoops"", ""b-ball"", ""basket ball"", ""BB"", ""Basketball""]",martial arts,0,"Q: What sport does 2011–12 Elon Phoenix men's basketball team play?
+A: martial arts"
+5847633,What is the capital of canton of Saint-Doulchard?,Saint-Doulchard,"[""Saint-Doulchard"", ""Unité-sur-Yèvre""]",Nitra,0,"Q: What is the capital of canton of Saint-Doulchard?
+A: Nitra"
+5773028,What is the capital of Gunnedah Shire?,Gunnedah,"[""Gunnedah"", ""Gunnedah, New South Wales"", ""Gunnedah, New South Wales, Australia""]",Damanhur,1,"Q: What is the capital of Gunnedah Shire?
+A: Damanhur"
+2556639,In what country is Bank of Mozambique?,Mozambique,"[""Mozambique"", ""Moçambique"", ""República de Moçambique"", ""MZ"", ""MOZ"", ""mz"", ""🇲🇿"", ""Republic of Mozambique""]",Turkey,1,"Q: In what country is Bank of Mozambique?
+A: Turkey"
+4781423,What is the capital of Meissen District?,Meissen,"[""Meissen"", ""Meißen""]",Buea,1,"Q: What is the capital of Meissen District?
+A: Buea"
+1874323,Who was the composer of Breaking News?,Michael Jackson,"[""Michael Jackson"", ""MJ"", ""The King of Pop"", ""Michael Joe Jackson"", ""Michael Joseph Jackson"", ""M.J."", ""M. J."", ""King of Pop"", ""King of Music"", ""The King""]",Jeet Ganguly,1,"Q: Who was the composer of Breaking News?
+A: Jeet Ganguly"
+2848601,In what city was Valdemar III of Denmark born?,Denmark,"[""Denmark"", ""DK"", ""Danmark"", ""DNK"", ""DEK"", ""dk"", ""Denmark proper"", ""metropolitan Denmark"", ""🇩🇰"", ""DEN"", ""TAN"", ""Realm of Denmark"", ""Kingdom of Denmark""]",Norwalk,1,"Q: In what city was Valdemar III of Denmark born?
+A: Norwalk"
+5013812,In what country is Aristotle University of Thessaloniki?,Greece,"[""Greece"", ""Hellenic Republic"", ""Hellas"", ""gr"", ""el"", ""🇬🇷"", ""Greek Republic"", ""GRE"", ""Ellada"", ""Greek""]",Japan,2,"Q: In what country is Aristotle University of Thessaloniki?
+A: Japan"
+6296761,What is Ica the capital of?,Ica,"[""Ica"", ""Ica Region"", ""Ica Province""]",Blanco County,2,"Q: What is Ica the capital of?
+A: Blanco County"
+368522,What is the religion of Alexander VII?,Catholic Church,"[""Catholic Church"", ""Roman Catholic Church"", ""Church"", ""Roman Apostolic Catholic Church""]",Buddhism,2,"Q: What is the religion of Alexander VII?
+A: Buddhism"
+682895,What is Albacete the capital of?,Albacete Province,"[""Albacete Province"", ""Albacete""]",Vaxholm Municipality,2,"Q: What is Albacete the capital of?
+A: Vaxholm Municipality"
+1648347,In what country is Sognefjord?,Norway,"[""Norway"", ""Kingdom of Norway"", ""Norge"", ""Norvège‏"", ""NO"", ""NOR"", ""no"", ""Noreg"", ""Norwegen‏"", ""🇳🇴""]",Spain,2,"Q: In what country is Sognefjord?
+A: Spain"
+3042619,What is Rumi's occupation?,poet,"[""philosopher"", ""poet"", ""poetess"", ""bard""]",physician,3,"Q: What is Rumi's occupation?
+A: physician"
+4590298,"What is Washington, D.C. the capital of?",United States of America,"[""United States of America"", ""the United States of America"", ""America"", ""U.S.A."", ""USA"", ""U.S."", ""US"", ""the US"", ""the USA"", ""US of A"", ""the United States"", ""U. S. A."", ""U. S."", ""the States"", ""the U.S."", ""'Merica"", ""U.S"", ""United States"", ""'Murica""]",Hautes-Alpes,3,"Q: What is Washington, D.C. the capital of?
+A: Hautes-Alpes"
+5932260,What is the capital of Guatemala?,Guatemala City,"[""Guatemala City"", ""Nueva Guatemala de la Asunción"", ""City of Guatemala"", ""Guate"", ""Ciudad de Guatemala"", ""Guatemala"", ""Guatemala (Guatemala)""]",Hartford,3,"Q: What is the capital of Guatemala?
+A: Hartford"
+1436355,What is the capital of Emirate of Abu Dhabi?,Abu Dhabi,"[""Abu Dhabi"", ""Abū Dhabi"", ""Abudhabi""]",Yining City,3,"Q: What is the capital of Emirate of Abu Dhabi?
+A: Yining City"
+3078887,What is Chris Jericho's occupation?,actor,"[""actor"", ""actress"", ""actors"", ""actresses""]",priest,3,"Q: What is Chris Jericho's occupation?
+A: priest"
